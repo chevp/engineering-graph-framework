@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Engineering-Graph — Visualisierung</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-2: #1d222d;
+    --border: #262c39;
+    --text: #e6e8ee;
+    --muted: #8a93a6;
+    --accent: #6ea8fe;
+
+    --state-context: #8a93a6;
+    --state-exploration: #f0b429;
+    --state-production: #3ddc84;
+    --state-superseded: #5b6577;
+    --state-invalidated: #e5484d;
+
+    --edge-depends_on: #6ea8fe;
+    --edge-refines: #b07cf0;
+    --edge-supersedes: #5b6577;
+    --edge-contradicts: #e5484d;
+    --edge-related_to: #4a5266;
+    --edge-produced_by: #3ddc84;
+    --edge-evidence_for: #3ddc84;
+    --edge-evidence_against: #e5484d;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    display: grid;
+    grid-template-rows: auto 1fr;
+    grid-template-columns: 1fr 360px;
+    grid-template-areas: "header header" "graph side";
+    height: 100vh;
+  }
+  header {
+    grid-area: header;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header h1 { font-size: 14px; font-weight: 600; margin: 0; letter-spacing: 0.2px; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    border: 1px solid var(--border); background: var(--panel); color: var(--text);
+    padding: 4px 10px; border-radius: 999px; font-size: 12px; cursor: pointer;
+    user-select: none; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip[aria-pressed="true"] { background: var(--panel-2); border-color: var(--accent); }
+  .chip .dot { width: 8px; height: 8px; border-radius: 50%; }
+  #graph { grid-area: graph; background: var(--bg); overflow: hidden; position: relative; }
+  #graph svg { width: 100%; height: 100%; display: block; cursor: grab; }
+  #graph svg.dragging { cursor: grabbing; }
+  .node-group { cursor: pointer; }
+  .node-group .label { font: 11px/1.2 system-ui, sans-serif; fill: #0f1115; pointer-events: none; }
+  .node-group .label.outside { fill: var(--text); }
+  .node-group.selected .shape { stroke: #fff; stroke-width: 2.5; }
+  .node-group.dim { opacity: 0.15; }
+  .edge { fill: none; }
+  .edge.dim { opacity: 0.08; }
+  .edge-label {
+    font: 9px system-ui, sans-serif; fill: var(--muted);
+    pointer-events: none; text-anchor: middle;
+  }
+  .edge-label.dim { opacity: 0; }
+  aside {
+    grid-area: side; border-left: 1px solid var(--border); background: var(--panel);
+    overflow: auto; padding: 16px;
+  }
+  aside h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  aside .node-title { font-size: 16px; font-weight: 600; margin: 0 0 6px; }
+  aside .meta { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  aside .meta b { color: var(--text); font-weight: 500; }
+  aside .body { white-space: pre-wrap; font-size: 13px; }
+  aside .edges { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  aside .edges ul { margin: 6px 0 0; padding-left: 18px; }
+  aside .edges li { font-size: 12px; color: var(--muted); }
+  aside .edges li b { color: var(--text); font-weight: 500; }
+  aside .empty { color: var(--muted); font-size: 13px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--muted); }
+  .legend .group { display: flex; gap: 6px; align-items: center; }
+  .legend .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+  .legend .edge-swatch { display: inline-block; width: 18px; height: 0; border-top: 2px solid; }
+  @media (max-width: 900px) {
+    body { grid-template-columns: 1fr; grid-template-areas: "header" "graph" "side"; grid-template-rows: auto 1fr auto; }
+    aside { border-left: 0; border-top: 1px solid var(--border); max-height: 40vh; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Engineering-Graph</h1>
+  <span class="sub">generische Visualisierung · zero-dependency</span>
+  <div class="filters" id="state-filters" aria-label="State-Filter"></div>
+  <div class="legend" id="legend"></div>
+</header>
+<div id="graph">
+  <svg id="svg" xmlns="http://www.w3.org/2000/svg">
+    <defs id="defs"></defs>
+    <g id="viewport">
+      <g id="edges"></g>
+      <g id="edgeLabels"></g>
+      <g id="nodes"></g>
+    </g>
+  </svg>
+</div>
+<aside id="details">
+  <h2>Details</h2>
+  <p class="empty">Knoten anklicken, um Inhalte zu sehen.</p>
+</aside>
+
+<!--
+  Datenquelle. Im Produktivbetrieb wird dieses JSON aus den Markdown-Knoten generiert
+  (plan-graph/nodes/*.md, agent-graph/capabilities/*.md). Schema spiegelt YAML-Frontmatter:
+    nodes[].id, type, state, title, created, version, gates_passed, body
+    edges[].from, to, type, note
+  IDs aus Cross-Graph mit Prefix "agent:" oder "plan:" — siehe docs/schema.md.
+-->
+<script id="graph-data" type="application/json">
+{
+  "nodes": [
+    {
+      "id": "N001", "type": "observation", "state": "production",
+      "title": "/search p99 = 1.8s in Prod",
+      "created": "2026-04-28", "version": 1, "gates_passed": ["G1", "G2"],
+      "body": "Der Endpoint /search hat in Produktion eine p99-Latenz von 1.8s, gemessen über 24h.\n\nEvidenz: k6-Lauf vom 2026-04-28, 5k VUs, 30 min Sustained.\np50 = 220ms, p95 = 1.1s, p99 = 1.8s."
+    },
+    {
+      "id": "N002", "type": "hypothesis", "state": "superseded",
+      "title": "Fehlender Index auf documents.tenant_id",
+      "created": "2026-04-28", "version": 1, "gates_passed": ["G1"],
+      "body": "Die Latenz aus N001 wird durch fehlenden B-Tree-Index auf documents.tenant_id verursacht.\n\nErfolgskriterium: EXPLAIN ANALYZE zeigt Index-Scan statt Seq-Scan; p99 < 500ms.\nDurch N009 verfeinert: einspaltiger Index löst das Sortier-Problem nicht."
+    },
+    {
+      "id": "N003", "type": "decision", "state": "context",
+      "title": "Migration 0042: composite index (tenant_id, created_at DESC)",
+      "created": "2026-05-01", "version": 1, "gates_passed": [],
+      "body": "Migration 0042_documents_tenant_created_idx.sql legt einen zusammengesetzten Index (tenant_id, created_at DESC) auf documents an.\n\nErfolgskriterium: idempotent, CREATE INDEX CONCURRENTLY, Staging-Replay zeigt p99 < 300ms."
+    },
+    {
+      "id": "N005", "type": "spec", "state": "production",
+      "title": "SLO /search p99 < 300ms",
+      "created": "2026-04-20", "version": 1, "gates_passed": ["G1", "G2"],
+      "body": "Service-Level-Objective für /search: p99 < 300ms über rollendes 7-Tage-Fenster.\nReferenz für alle Latenz-Hypothesen."
+    },
+    {
+      "id": "N006", "type": "risk", "state": "exploration",
+      "title": "Schreiblast-Spike bei Index-Build",
+      "created": "2026-04-30", "version": 1, "gates_passed": ["G1"],
+      "body": "CONCURRENTLY erlaubt Writes, kostet aber I/O. Risiko: Latenz-Spike auf anderen Endpoints während Build.\n\nErfolgskriterium: Toleranzband ±15% p95 auf /ingest während Migration."
+    },
+    {
+      "id": "N009", "type": "hypothesis", "state": "exploration",
+      "title": "Composite-Index löst Sort + Filter gemeinsam",
+      "created": "2026-04-29", "version": 2, "gates_passed": ["G1"],
+      "body": "Ein zusammengesetzter Index (tenant_id, created_at DESC) bedient sowohl Filter als auch Sortierung ohne separates Sort-Step.\n\nErfolgskriterium: EXPLAIN zeigt Index-Scan + keine Sort-Node; p99 < 300ms."
+    },
+    {
+      "id": "agent:A002", "type": "capability", "state": "production",
+      "title": "k6 Load-Runner",
+      "created": "2026-01-10", "version": 3, "gates_passed": ["G1", "G2"],
+      "body": "Agent-Graph-Knoten. Führt parametrisierte k6-Skripte gegen Staging/Prod aus und schreibt Mess-Knoten in den Plan-Graph zurück."
+    }
+  ],
+  "edges": [
+    { "from": "N001", "to": "N005", "type": "contradicts", "note": "verletzt SLO um Faktor 6" },
+    { "from": "N001", "to": "agent:A002", "type": "produced_by" },
+    { "from": "N002", "to": "N001", "type": "related_to", "note": "Versuch, N001 zu erklären" },
+    { "from": "N003", "to": "N009", "type": "depends_on", "note": "umsetzbare Form von N009" },
+    { "from": "N003", "to": "N009", "type": "refines" },
+    { "from": "N003", "to": "N006", "type": "related_to", "note": "Risiko explizit getrackt" },
+    { "from": "N009", "to": "N002", "type": "supersedes" },
+    { "from": "N009", "to": "N001", "type": "evidence_against", "note": "wenn bestätigt" }
+  ]
+}
+</script>
+
+<script>
+  // ----- Style maps -----
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const STATES = {
+    context:     { color: css('--state-context'),     label: "Context" },
+    exploration: { color: css('--state-exploration'), label: "Exploration" },
+    production:  { color: css('--state-production'),  label: "Production" },
+    superseded:  { color: css('--state-superseded'),  label: "Superseded" },
+    invalidated: { color: css('--state-invalidated'), label: "Invalidated" },
+  };
+  // shape: 'circle' | 'diamond' | 'rect' | 'triangle' | 'triangleDown' | 'hexagon'
+  const TYPE_SHAPE = {
+    observation:  'circle',
+    measurement:  'circle',
+    hypothesis:   'diamond',
+    assumption:   'triangle',
+    decision:     'rect',
+    spec:         'rect',
+    risk:         'triangleDown',
+    capability:   'hexagon',
+  };
+  const EDGE_STYLE = {
+    depends_on:        { color: css('--edge-depends_on'),        dash: null,    width: 2 },
+    refines:           { color: css('--edge-refines'),           dash: null,    width: 2 },
+    supersedes:        { color: css('--edge-supersedes'),        dash: null,    width: 3 },
+    contradicts:       { color: css('--edge-contradicts'),       dash: '6 4',   width: 2 },
+    related_to:        { color: css('--edge-related_to'),        dash: '2 4',   width: 1 },
+    produced_by:       { color: css('--edge-produced_by'),       dash: '1 3',   width: 1 },
+    evidence_for:      { color: css('--edge-evidence_for'),      dash: null,    width: 2 },
+    evidence_against:  { color: css('--edge-evidence_against'),  dash: null,    width: 2 },
+  };
+
+  // ----- Data -----
+  const raw = JSON.parse(document.getElementById('graph-data').textContent);
+  const nodeMap = Object.fromEntries(raw.nodes.map(n => [n.id, n]));
+  const NODE_R = 22;
+
+  // initial layout: circle around origin
+  raw.nodes.forEach((n, i) => {
+    const a = (i / raw.nodes.length) * Math.PI * 2;
+    n.x = Math.cos(a) * 200;
+    n.y = Math.sin(a) * 200;
+    n.vx = 0; n.vy = 0;
+    n.fixed = false;
+    n.hidden = false;
+  });
+
+  // ----- SVG defs (arrow markers, one per edge color) -----
+  const defs = document.getElementById('defs');
+  const usedColors = new Set(Object.values(EDGE_STYLE).map(s => s.color));
+  for (const c of usedColors) {
+    const id = 'arrow_' + c.replace('#','');
+    defs.insertAdjacentHTML('beforeend', `
+      <marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="${c}"/>
+      </marker>`);
+  }
+  const arrowFor = c => 'arrow_' + c.replace('#','');
+
+  // ----- Build SVG nodes & edges -----
+  const svg = document.getElementById('svg');
+  const viewport = document.getElementById('viewport');
+  const edgeLayer = document.getElementById('edges');
+  const edgeLabelLayer = document.getElementById('edgeLabels');
+  const nodeLayer = document.getElementById('nodes');
+  const SVGNS = 'http://www.w3.org/2000/svg';
+
+  function shapePath(shape, r) {
+    switch (shape) {
+      case 'rect':         return `M ${-r} ${-r*0.7} h ${2*r} v ${1.4*r} h ${-2*r} z`;
+      case 'diamond':      return `M 0 ${-r} L ${r} 0 L 0 ${r} L ${-r} 0 z`;
+      case 'triangle':     return `M 0 ${-r} L ${r*0.95} ${r*0.7} L ${-r*0.95} ${r*0.7} z`;
+      case 'triangleDown': return `M 0 ${r} L ${r*0.95} ${-r*0.7} L ${-r*0.95} ${-r*0.7} z`;
+      case 'hexagon':      {
+        const pts = [];
+        for (let k = 0; k < 6; k++) {
+          const a = Math.PI/6 + k * Math.PI/3;
+          pts.push(`${(k===0?'M':'L')} ${Math.cos(a)*r} ${Math.sin(a)*r}`);
+        }
+        return pts.join(' ') + ' z';
+      }
+      default: return null; // circle
+    }
+  }
+
+  raw.edges.forEach((e, i) => {
+    const style = EDGE_STYLE[e.type] ?? { color: '#888', dash: null, width: 1 };
+    const path = document.createElementNS(SVGNS, 'path');
+    path.setAttribute('class', 'edge');
+    path.setAttribute('stroke', style.color);
+    path.setAttribute('stroke-width', style.width);
+    if (style.dash) path.setAttribute('stroke-dasharray', style.dash);
+    path.setAttribute('marker-end', `url(#${arrowFor(style.color)})`);
+    edgeLayer.appendChild(path);
+
+    const label = document.createElementNS(SVGNS, 'text');
+    label.setAttribute('class', 'edge-label');
+    label.textContent = e.type;
+    edgeLabelLayer.appendChild(label);
+
+    e._el = path;
+    e._label = label;
+    e._style = style;
+  });
+
+  raw.nodes.forEach(n => {
+    const g = document.createElementNS(SVGNS, 'g');
+    g.setAttribute('class', 'node-group');
+    g.dataset.id = n.id;
+
+    const stateColor = STATES[n.state]?.color ?? '#888';
+    const isFinal = n.state === 'superseded' || n.state === 'invalidated';
+    const shape = TYPE_SHAPE[n.type] ?? 'circle';
+
+    let shapeEl;
+    const path = shapePath(shape, NODE_R);
+    if (path) {
+      shapeEl = document.createElementNS(SVGNS, 'path');
+      shapeEl.setAttribute('d', path);
+    } else {
+      shapeEl = document.createElementNS(SVGNS, 'circle');
+      shapeEl.setAttribute('r', NODE_R);
+    }
+    shapeEl.setAttribute('class', 'shape');
+    shapeEl.setAttribute('fill', stateColor);
+    shapeEl.setAttribute('stroke', isFinal ? css('--bg') : stateColor);
+    shapeEl.setAttribute('stroke-width', '1.5');
+    if (isFinal) shapeEl.setAttribute('stroke-dasharray', '4 3');
+
+    const idText = document.createElementNS(SVGNS, 'text');
+    idText.setAttribute('class', 'label');
+    idText.setAttribute('text-anchor', 'middle');
+    idText.setAttribute('dominant-baseline', 'central');
+    idText.setAttribute('y', '0');
+    idText.style.fontWeight = '600';
+    idText.textContent = n.id;
+
+    const titleText = document.createElementNS(SVGNS, 'text');
+    titleText.setAttribute('class', 'label outside');
+    titleText.setAttribute('text-anchor', 'middle');
+    titleText.setAttribute('y', NODE_R + 12);
+    titleText.textContent = n.title.length > 36 ? n.title.slice(0, 34) + '…' : n.title;
+
+    g.appendChild(shapeEl);
+    g.appendChild(idText);
+    g.appendChild(titleText);
+    nodeLayer.appendChild(g);
+
+    n._el = g;
+    n._shape = shapeEl;
+  });
+
+  // ----- Force simulation -----
+  const REPULSION = 6000;
+  const SPRING_LENGTH = 140;
+  const SPRING_K = 0.04;
+  const CENTER_K = 0.002;
+  const DAMPING = 0.82;
+  let temperature = 1.0;
+
+  function tick() {
+    const live = raw.nodes.filter(n => !n.hidden);
+    // repulsion (O(n^2) — fine for hundreds of nodes)
+    for (let i = 0; i < live.length; i++) {
+      for (let j = i + 1; j < live.length; j++) {
+        const a = live[i], b = live[j];
+        let dx = b.x - a.x, dy = b.y - a.y;
+        let d2 = dx*dx + dy*dy;
+        if (d2 < 1) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 1; }
+        const d = Math.sqrt(d2);
+        const f = REPULSION / d2;
+        const fx = f * dx / d, fy = f * dy / d;
+        a.vx -= fx; a.vy -= fy;
+        b.vx += fx; b.vy += fy;
+      }
+    }
+    // edges as springs
+    for (const e of raw.edges) {
+      const a = nodeMap[e.from], b = nodeMap[e.to];
+      if (!a || !b || a.hidden || b.hidden) continue;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.sqrt(dx*dx + dy*dy) || 1;
+      const f = (d - SPRING_LENGTH) * SPRING_K;
+      const fx = f * dx / d, fy = f * dy / d;
+      a.vx += fx; a.vy += fy;
+      b.vx -= fx; b.vy -= fy;
+    }
+    // gentle pull to origin
+    for (const n of live) {
+      n.vx -= n.x * CENTER_K;
+      n.vy -= n.y * CENTER_K;
+    }
+    // integrate
+    for (const n of live) {
+      if (n.fixed) { n.vx = 0; n.vy = 0; continue; }
+      n.vx *= DAMPING; n.vy *= DAMPING;
+      n.x += n.vx * temperature;
+      n.y += n.vy * temperature;
+    }
+    temperature = Math.max(0.05, temperature * 0.997);
+  }
+
+  function render() {
+    for (const n of raw.nodes) {
+      n._el.setAttribute('transform', `translate(${n.x},${n.y})`);
+      n._el.style.display = n.hidden ? 'none' : '';
+    }
+    for (const e of raw.edges) {
+      const a = nodeMap[e.from], b = nodeMap[e.to];
+      if (!a || !b) { e._el.style.display = 'none'; e._label.style.display = 'none'; continue; }
+      const hide = a.hidden || b.hidden;
+      e._el.style.display = hide ? 'none' : '';
+      e._label.style.display = hide ? 'none' : '';
+      // shrink endpoints to node radius
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.sqrt(dx*dx + dy*dy) || 1;
+      const ux = dx/d, uy = dy/d;
+      const sx = a.x + ux * NODE_R, sy = a.y + uy * NODE_R;
+      const ex = b.x - ux * (NODE_R + 4), ey = b.y - uy * (NODE_R + 4);
+      e._el.setAttribute('d', `M ${sx} ${sy} L ${ex} ${ey}`);
+      e._label.setAttribute('x', (sx + ex) / 2);
+      e._label.setAttribute('y', (sy + ey) / 2 - 3);
+    }
+  }
+
+  function loop() {
+    tick();
+    render();
+    requestAnimationFrame(loop);
+  }
+  loop();
+
+  // ----- Pan / zoom -----
+  let panX = 0, panY = 0, scale = 1;
+  function applyView() {
+    const rect = svg.getBoundingClientRect();
+    viewport.setAttribute('transform',
+      `translate(${rect.width/2 + panX},${rect.height/2 + panY}) scale(${scale})`);
+  }
+  applyView();
+  window.addEventListener('resize', applyView);
+
+  svg.addEventListener('wheel', ev => {
+    ev.preventDefault();
+    const delta = -ev.deltaY * 0.001;
+    const next = Math.min(3, Math.max(0.2, scale * (1 + delta)));
+    scale = next;
+    applyView();
+  }, { passive: false });
+
+  let panning = null;
+  svg.addEventListener('mousedown', ev => {
+    if (ev.target.closest('.node-group')) return;
+    panning = { x: ev.clientX, y: ev.clientY, px: panX, py: panY };
+    svg.classList.add('dragging');
+  });
+  window.addEventListener('mousemove', ev => {
+    if (!panning) return;
+    panX = panning.px + (ev.clientX - panning.x);
+    panY = panning.py + (ev.clientY - panning.y);
+    applyView();
+  });
+  window.addEventListener('mouseup', () => { panning = null; svg.classList.remove('dragging'); });
+
+  // ----- Node drag -----
+  function clientToWorld(cx, cy) {
+    const rect = svg.getBoundingClientRect();
+    return {
+      x: (cx - rect.left - rect.width/2 - panX) / scale,
+      y: (cy - rect.top - rect.height/2 - panY) / scale,
+    };
+  }
+  let dragging = null;
+  nodeLayer.addEventListener('mousedown', ev => {
+    const g = ev.target.closest('.node-group');
+    if (!g) return;
+    ev.stopPropagation();
+    const n = nodeMap[g.dataset.id];
+    n.fixed = true;
+    dragging = { node: n };
+    temperature = Math.max(temperature, 0.6);
+  });
+  window.addEventListener('mousemove', ev => {
+    if (!dragging) return;
+    const p = clientToWorld(ev.clientX, ev.clientY);
+    dragging.node.x = p.x; dragging.node.y = p.y;
+    dragging.node.vx = 0; dragging.node.vy = 0;
+  });
+  window.addEventListener('mouseup', () => {
+    if (dragging) { dragging.node.fixed = false; dragging = null; }
+  });
+
+  // ----- Selection / details -----
+  let selectedId = null;
+  nodeLayer.addEventListener('click', ev => {
+    const g = ev.target.closest('.node-group');
+    if (!g) return;
+    selectNode(g.dataset.id);
+  });
+  svg.addEventListener('click', ev => {
+    if (!ev.target.closest('.node-group')) selectNode(null);
+  });
+
+  function selectNode(id) {
+    selectedId = id;
+    const neighbours = new Set();
+    if (id) {
+      neighbours.add(id);
+      for (const e of raw.edges) {
+        if (e.from === id) neighbours.add(e.to);
+        if (e.to === id) neighbours.add(e.from);
+      }
+    }
+    for (const n of raw.nodes) {
+      n._el.classList.toggle('selected', n.id === id);
+      n._el.classList.toggle('dim', !!id && !neighbours.has(n.id));
+    }
+    for (const e of raw.edges) {
+      const incident = id && (e.from === id || e.to === id);
+      e._el.classList.toggle('dim', !!id && !incident);
+      e._label.classList.toggle('dim', !!id && !incident);
+    }
+    renderDetails(id);
+  }
+
+  const details = document.getElementById('details');
+  function renderDetails(id) {
+    if (!id) {
+      details.innerHTML = `<h2>Details</h2><p class="empty">Knoten anklicken, um Inhalte zu sehen.</p>`;
+      return;
+    }
+    const n = nodeMap[id];
+    if (!n) return;
+    const outgoing = raw.edges.filter(e => e.from === id);
+    const incoming = raw.edges.filter(e => e.to === id);
+    details.innerHTML = `
+      <h2>Knoten</h2>
+      <p class="node-title">${esc(n.title)}</p>
+      <div class="meta">
+        <b>${esc(n.id)}</b> · ${esc(n.type)} ·
+        <span style="color:${STATES[n.state]?.color}">${esc(n.state)}</span> ·
+        v${n.version} · ${esc((n.gates_passed||[]).join(', ') || '—')}
+        <br><span>created: ${esc(n.created || '—')}</span>
+      </div>
+      <div class="body">${esc(n.body || '')}</div>
+      <div class="edges">
+        <h2>Kanten</h2>
+        ${edgeList('ausgehend', outgoing, 'to')}
+        ${edgeList('eingehend', incoming, 'from')}
+      </div>
+    `;
+  }
+  function edgeList(label, list, otherKey) {
+    if (!list.length) return `<div class="meta">${label}: —</div>`;
+    return `
+      <div class="meta">${label}:</div>
+      <ul>${list.map(e =>
+        `<li><b>${esc(e.type)}</b> → ${esc(e[otherKey])}${e.note ? ` <span>(${esc(e.note)})</span>` : ''}</li>`
+      ).join('')}</ul>`;
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ----- Filters & legend -----
+  const filterRoot = document.getElementById('state-filters');
+  const activeStates = new Set(Object.keys(STATES));
+  for (const [key, meta] of Object.entries(STATES)) {
+    const chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.setAttribute('aria-pressed', 'true');
+    chip.dataset.state = key;
+    chip.innerHTML = `<span class="dot" style="background:${meta.color}"></span>${meta.label}`;
+    chip.onclick = () => {
+      if (activeStates.has(key)) activeStates.delete(key); else activeStates.add(key);
+      chip.setAttribute('aria-pressed', activeStates.has(key) ? 'true' : 'false');
+      applyFilter();
+    };
+    filterRoot.appendChild(chip);
+  }
+  function applyFilter() {
+    for (const n of raw.nodes) n.hidden = !activeStates.has(n.state);
+    temperature = Math.max(temperature, 0.5);
+  }
+
+  const legend = document.getElementById('legend');
+  const stateLegend = Object.values(STATES).map(m =>
+    `<span class="group"><span class="swatch" style="background:${m.color}"></span>${m.label}</span>`
+  ).join('');
+  const edgeLegend = Object.entries(EDGE_STYLE).map(([k, s]) =>
+    `<span class="group"><span class="edge-swatch" style="border-top-color:${s.color};border-top-style:${s.dash ? 'dashed' : 'solid'}"></span>${k}</span>`
+  ).join('');
+  legend.innerHTML = stateLegend + ' &nbsp;·&nbsp; ' + edgeLegend;
+</script>
+</body>
+</html>
