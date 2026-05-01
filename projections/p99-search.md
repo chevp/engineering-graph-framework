@@ -14,8 +14,9 @@ Bei Änderung am Subgraph einfach neu projizieren, nicht editieren.
 
 ```
 N005 (spec, production)
-  ↑ contradicts
-N001 (observation, production) ──produced_by──→ A002
+  ↑ contradicts ─────────────── N010 (observation, production) ──produced_by──→ A005
+  ↑ contradicts                       │ related_to
+N001 (observation, production) ───────┘ ──produced_by──→ A002
   ↑ related_to
 N009 (hypothesis, exploration) ──supersedes──→ N002 (superseded)
   ↑ depends_on               └── depends_on ──→ N008 (assumption, exploration)
@@ -26,6 +27,9 @@ N003 (decision, context) ──related_to──→ N006 (risk, context)
 ```
 
 Ausgeklammert: N007 (invalidated, kein Pfad zum Ziel).
+
+Drei Schreibquellen sichtbar: Mensch-erzeugt (N002, N003, N005, N006, N007, N008, N009),
+Agent-erzeugt (N001 ← A002, N004 ← A001), Importer-erzeugt (N010 ← A005).
 
 ## Topologisch sortierte Ausführungssicht
 

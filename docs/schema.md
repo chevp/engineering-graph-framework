@@ -48,3 +48,21 @@ Was bei Gate-Übergängen passiert ist. Kurz.
 - `plan-graph/nodes/` — Wissenssubstrat (hochfrequent)
 - `agent-graph/capabilities/` — Werkzeug-Katalog (niederfrequent)
 - `projections/` — materialisierte Plan-Sichten (Query-Resultate, regenerierbar)
+
+## Speicher
+
+Markdown-Files sind die kanonische Form. SQLite ist ein generierter Index zur
+Beschleunigung von Traversals. Siehe [ADR-0001](adr/0001-markdown-als-source-of-truth.md).
+
+## Schreibquellen
+
+Drei Quellen, ein Pfad (alle schreiben Markdown):
+
+| Quelle    | Erkennbar an                | Typische Knotentypen                                  |
+|-----------|-----------------------------|-------------------------------------------------------|
+| Mensch    | kein `produced_by`-Edge     | hypothesis, assumption, decision, spec, risk          |
+| Agent     | `produced_by: agent:Axxx`   | observation, measurement, evidence_for/against        |
+| Importer  | `produced_by: agent:Axxx`   | observation (aus Alerts, Issues, CI, Monitoring)      |
+
+Importer sind im Agent-Graph reguläre Capabilities — keine Sonderschnittstelle.
+Siehe [ADR-0002](adr/0002-schreibquellen.md).
