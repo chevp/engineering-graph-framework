@@ -1,0 +1,7 @@
+.DS_Store
+node_modules/
+
+# generierter Index — kanonische Form sind die Markdown-Files
+*.sqlite
+*.sqlite-journal
+.egf-cache/
