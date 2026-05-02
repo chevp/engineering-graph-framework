@@ -30,16 +30,16 @@ function fmt(obj) {
 
 function projectCmd() {
   const root = requireRepoRoot();
-  const nodes = readAll(path.join(root, 'plan-graph', 'nodes'));
-  const inbox = readAll(path.join(root, 'plan-graph', 'inbox'));
-  const caps = readAll(path.join(root, 'agent-graph', 'capabilities'));
+  const nodes = readAll(path.join(root, 'nodes'));
+  const inbox = readAll(path.join(root, 'inbox'));
+  const caps = nodes.filter(n => n.type === 'capability');
 
   console.log(`egf project — ${root}\n`);
-  console.log(`plan-graph/nodes:        ${nodes.length}`);
-  console.log(`  by state:   ${fmt(tally(nodes, 'state'))}`);
-  console.log(`  by type:    ${fmt(tally(nodes, 'type'))}`);
-  console.log(`plan-graph/inbox:        ${inbox.length}`);
-  console.log(`agent-graph/capabilities: ${caps.length}`);
+  console.log(`nodes:         ${nodes.length}`);
+  console.log(`  by state:    ${fmt(tally(nodes, 'state'))}`);
+  console.log(`  by type:     ${fmt(tally(nodes, 'type'))}`);
+  console.log(`inbox:         ${inbox.length}`);
+  console.log(`capabilities:  ${caps.length}  (subset of nodes where type=capability)`);
 }
 
 module.exports = projectCmd;

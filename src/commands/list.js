@@ -45,7 +45,7 @@ function listCmd(args) {
   const root = requireRepoRoot();
 
   if (what === 'nodes') {
-    const rows = readEntries(path.join(root, 'plan-graph', 'nodes'));
+    const rows = readEntries(path.join(root, 'nodes'));
     printTable(rows, [
       { header: 'ID',    key: 'id' },
       { header: 'TYPE',  key: 'type' },
@@ -56,7 +56,7 @@ function listCmd(args) {
   }
 
   if (what === 'capabilities' || what === 'caps') {
-    const rows = readEntries(path.join(root, 'agent-graph', 'capabilities'));
+    const rows = readEntries(path.join(root, 'nodes')).filter(r => r.type === 'capability');
     printTable(rows, [
       { header: 'ID',    key: 'id' },
       { header: 'STATE', key: 'state' },
@@ -66,7 +66,7 @@ function listCmd(args) {
   }
 
   if (what === 'inbox') {
-    const rows = readEntries(path.join(root, 'plan-graph', 'inbox'));
+    const rows = readEntries(path.join(root, 'inbox'));
     printTable(rows, [
       { header: 'ID',    key: 'id' },
       { header: 'TYPE',  key: 'type' },

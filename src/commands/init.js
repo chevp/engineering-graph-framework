@@ -7,9 +7,8 @@ const { ensureDir, copyIfMissing } = require('../util/fsx');
 const TEMPLATES_DIR = path.join(__dirname, '..', 'templates');
 
 const DIRS = [
-  'plan-graph/nodes',
-  'plan-graph/inbox',
-  'agent-graph/capabilities',
+  'nodes',
+  'inbox',
   'projections',
   'docs/adr',
 ];
@@ -17,15 +16,14 @@ const DIRS = [
 const FILES = [
   { dest: 'README.md',                                       src: 'project-readme.md' },
   { dest: '.gitignore',                                      src: 'gitignore' },
-  { dest: 'plan-graph/README.md',                            src: 'plan-graph-readme.md' },
-  { dest: 'plan-graph/inbox/README.md',                      src: 'inbox-readme.md' },
-  { dest: 'agent-graph/README.md',                           src: 'agent-graph-readme.md' },
+  { dest: 'inbox/README.md',                                 src: 'inbox-readme.md' },
   { dest: 'projections/README.md',                           src: 'projections-readme.md' },
   { dest: 'docs/schema.md',                                  src: 'schema.md' },
   { dest: 'docs/cli.md',                                     src: 'cli.md' },
   { dest: 'docs/adr/README.md',                              src: 'adr-readme.md' },
   { dest: 'docs/adr/0001-markdown-als-source-of-truth.md',   src: 'adr-0001.md' },
   { dest: 'docs/adr/0002-schreibquellen.md',                 src: 'adr-0002.md' },
+  { dest: 'docs/adr/0003-ein-graph.md',                      src: 'adr-0003.md' },
 ];
 
 function init(args) {
@@ -74,7 +72,7 @@ function init(args) {
   console.log(`\n${created} created, ${skipped} skipped`);
   console.log(`\nNext steps:`);
   console.log(`  egf node new hypothesis "deine erste Hypothese"`);
-  console.log(`  egf capability new "k6 load tester"`);
+  console.log(`  egf node new capability "k6 load tester"`);
   console.log(`  egf list nodes`);
   console.log(`  egf project`);
 }

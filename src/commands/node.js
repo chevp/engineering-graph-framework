@@ -13,6 +13,7 @@ const VALID_TYPES = [
   'spec',
   'measurement',
   'risk',
+  'capability',
 ];
 
 // initial state per type — observations and measurements are facts on arrival
@@ -25,6 +26,7 @@ const INITIAL_STATE = {
   decision: 'context',
   spec: 'context',
   risk: 'context',
+  capability: 'context',
 };
 
 function template({ id, type, title, date, state }) {
@@ -72,7 +74,7 @@ function nodeCmd(args) {
   }
 
   const root = requireRepoRoot();
-  const nodesDir = path.join(root, 'plan-graph', 'nodes');
+  const nodesDir = path.join(root, 'nodes');
   const id = nextId(nodesDir, 'N');
   const fname = `${id}-${type}-${slugify(title)}.md`;
   const fpath = path.join(nodesDir, fname);

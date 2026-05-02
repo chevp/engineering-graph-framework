@@ -5,7 +5,6 @@ const fs = require('fs');
 
 const init = require('./commands/init');
 const node = require('./commands/node');
-const capability = require('./commands/capability');
 const list = require('./commands/list');
 const project = require('./commands/project');
 const validate = require('./commands/validate');
@@ -16,22 +15,22 @@ const HELP = `egf — Engineering-Graph Framework CLI (v${pkg.version})
 
 Usage:
   egf init                              Scaffold default folder structure in CWD
-  egf node new <type> "<title>"         Create a new plan-graph node
-  egf capability new "<title>"          Create a new agent-graph capability
+  egf node new <type> "<title>"         Create a new node
   egf list [nodes|capabilities|inbox]   List existing entries (default: nodes)
   egf project                           Print a one-screen overview of the graph
-  egf validate                          Check all node/capability files against the schema
+  egf validate                          Check all node files against the schema
   egf --help                            Show this help
   egf --version                         Show version
 
-Plan-graph node types:
-  observation, hypothesis, assumption, decision, spec, measurement, risk
+Node types:
+  observation, hypothesis, assumption, decision, spec, measurement, risk, capability
 
 Examples:
   egf init
   egf node new hypothesis "tenant_id index closes p99 gap"
-  egf capability new "k6 load tester"
+  egf node new capability "k6 load tester"
   egf list nodes
+  egf list capabilities
 `;
 
 function run(argv) {
@@ -52,8 +51,6 @@ function run(argv) {
         return init(rest);
       case 'node':
         return node(rest);
-      case 'capability':
-        return capability(rest);
       case 'list':
         return list(rest);
       case 'project':

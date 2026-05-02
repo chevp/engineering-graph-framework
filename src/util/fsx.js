@@ -24,10 +24,7 @@ function copyIfMissing(src, dest) {
 function findRepoRoot(startDir) {
   let dir = startDir;
   while (true) {
-    if (
-      fs.existsSync(path.join(dir, 'plan-graph')) &&
-      fs.existsSync(path.join(dir, 'agent-graph'))
-    ) {
+    if (fs.existsSync(path.join(dir, 'nodes'))) {
       return dir;
     }
     const parent = path.dirname(dir);
@@ -40,7 +37,7 @@ function requireRepoRoot() {
   const root = findRepoRoot(process.cwd());
   if (!root) {
     throw new Error(
-      "Not inside an egf repo (no plan-graph/ + agent-graph/). Run 'egf init' first."
+      "Not inside an egf repo (no nodes/ directory). Run 'egf init' first."
     );
   }
   return root;
