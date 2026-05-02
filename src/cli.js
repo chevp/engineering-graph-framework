@@ -8,6 +8,7 @@ const node = require('./commands/node');
 const capability = require('./commands/capability');
 const list = require('./commands/list');
 const project = require('./commands/project');
+const validate = require('./commands/validate');
 
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
 
@@ -19,6 +20,7 @@ Usage:
   egf capability new "<title>"          Create a new agent-graph capability
   egf list [nodes|capabilities|inbox]   List existing entries (default: nodes)
   egf project                           Print a one-screen overview of the graph
+  egf validate                          Check all node/capability files against the schema
   egf --help                            Show this help
   egf --version                         Show version
 
@@ -56,6 +58,8 @@ function run(argv) {
         return list(rest);
       case 'project':
         return project(rest);
+      case 'validate':
+        return validate(rest);
       default:
         console.error(`Unknown command: ${cmd}\n`);
         console.error(HELP);

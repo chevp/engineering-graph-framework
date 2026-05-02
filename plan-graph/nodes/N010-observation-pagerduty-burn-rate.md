@@ -13,7 +13,7 @@ edges:
   - to: N001
     type: related_to
     note: "drei Tage später durch k6-Lauf quantitativ bestätigt"
-  - to: agent:A005
+  - to: N015
     type: produced_by
 ---
 

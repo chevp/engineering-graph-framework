@@ -10,7 +10,7 @@ edges:
   - to: N005
     type: contradicts
     note: "verletzt SLO um Faktor 6"
-  - to: agent:A002
+  - to: N012
     type: produced_by
 ---
 

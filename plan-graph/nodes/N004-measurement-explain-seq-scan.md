@@ -12,7 +12,7 @@ edges:
   - to: N002
     type: evidence_for
     note: "stützt auch die alte Hypothese; Form irrelevant"
-  - to: agent:A001
+  - to: N011
     type: produced_by
 ---
 

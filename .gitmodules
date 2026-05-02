@@ -1,0 +1,3 @@
+[submodule "vendor/chevix-agents"]
+	path = vendor/chevix-agents
+	url = https://github.com/chevp/chevix-agents.git
