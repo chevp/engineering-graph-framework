@@ -18,6 +18,7 @@ Usage:
   egf node new <type> "<title>"         Create a new node
   egf list [nodes|capabilities|inbox]   List existing entries (default: nodes)
   egf project                           Print a one-screen overview of the graph
+  egf project <node-id>                 Project a subgraph from <node-id>, topo-sorted (prereqs first)
   egf validate                          Check all node files against the schema
   egf --help                            Show this help
   egf --version                         Show version

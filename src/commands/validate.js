@@ -5,7 +5,7 @@ const path = require('path');
 const { requireRepoRoot } = require('../util/fsx');
 const { parse } = require('../util/frontmatter');
 
-const PLAN_TYPES = [
+const NODE_TYPES = [
   'observation',
   'hypothesis',
   'assumption',
@@ -13,8 +13,8 @@ const PLAN_TYPES = [
   'spec',
   'measurement',
   'risk',
+  'capability',
 ];
-const AGENT_TYPES = ['capability'];
 const STATES = ['context', 'exploration', 'production', 'superseded', 'invalidated'];
 const EDGE_TYPES = [
   'depends_on',
@@ -37,12 +37,12 @@ const STATE_GATES = {
   invalidated: [],
 };
 
-function readDir(dir, graph) {
+function readDir(dir) {
   if (!fs.existsSync(dir)) return [];
   return fs
     .readdirSync(dir)
     .filter(f => f.endsWith('.md') && f !== 'README.md')
-    .map(f => ({ file: f, full: path.join(dir, f), graph }));
+    .map(f => ({ file: f, full: path.join(dir, f) }));
 }
 
 function validateFrontmatter(data, ctx) {
@@ -53,19 +53,16 @@ function validateFrontmatter(data, ctx) {
     if (data[k] === undefined) errors.push(`${k}: required field missing`);
   }
 
-  // id format + filename match
-  const idRe = ctx.graph === 'plan' ? /^N\d+$/ : /^A\d+$/;
   if (data.id !== undefined) {
-    if (typeof data.id !== 'string' || !idRe.test(data.id)) {
-      errors.push(`id: must match ${idRe} (got: ${JSON.stringify(data.id)})`);
+    if (typeof data.id !== 'string' || !/^N\d+$/.test(data.id)) {
+      errors.push(`id: must match /^N\\d+$/ (got: ${JSON.stringify(data.id)})`);
     } else if (!ctx.file.startsWith(data.id + '-') && ctx.file !== data.id + '.md') {
       errors.push(`id '${data.id}' does not match filename`);
     }
   }
 
-  const validTypes = ctx.graph === 'plan' ? PLAN_TYPES : AGENT_TYPES;
-  if (data.type !== undefined && !validTypes.includes(data.type)) {
-    errors.push(`type: must be one of: ${validTypes.join(', ')} (got: ${JSON.stringify(data.type)})`);
+  if (data.type !== undefined && !NODE_TYPES.includes(data.type)) {
+    errors.push(`type: must be one of: ${NODE_TYPES.join(', ')} (got: ${JSON.stringify(data.type)})`);
   }
 
   if (data.state !== undefined && !STATES.includes(data.state)) {
@@ -132,31 +129,16 @@ function validateFrontmatter(data, ctx) {
   return { errors, warnings };
 }
 
-function resolveTarget(target, planIds, agentIds) {
-  if (typeof target !== 'string') return { ok: false };
-  let kind = null;
-  let id = null;
-  if (target.startsWith('plan:')) { kind = 'plan'; id = target.slice(5); }
-  else if (target.startsWith('agent:')) { kind = 'agent'; id = target.slice(6); }
-  else if (/^N\d+$/.test(target)) { kind = 'plan'; id = target; }
-  else if (/^A\d+$/.test(target)) { kind = 'agent'; id = target; }
-  else return { ok: false };
-  const set = kind === 'plan' ? planIds : agentIds;
-  return { ok: set.has(id), kind, id };
-}
-
 function validateCmd() {
   const root = requireRepoRoot();
 
   const files = [
-    ...readDir(path.join(root, 'plan-graph', 'nodes'), 'plan'),
-    ...readDir(path.join(root, 'plan-graph', 'inbox'), 'plan'),
-    ...readDir(path.join(root, 'agent-graph', 'capabilities'), 'agent'),
+    ...readDir(path.join(root, 'nodes')),
+    ...readDir(path.join(root, 'inbox')),
   ];
 
   const parsed = [];
-  const planIds = new Set();
-  const agentIds = new Set();
+  const ids = new Set();
 
   for (const f of files) {
     let data = {};
@@ -170,20 +152,22 @@ function validateCmd() {
       ? { errors: [`frontmatter parse failed: ${parseError}`], warnings: [] }
       : validateFrontmatter(data, f);
     parsed.push({ ...f, data, errors: v.errors, warnings: v.warnings });
-    if (typeof data.id === 'string') {
-      if (f.graph === 'plan') planIds.add(data.id);
-      else agentIds.add(data.id);
-    }
+    if (typeof data.id === 'string') ids.add(data.id);
   }
 
-  // second pass: edge target resolution (needs all IDs)
+  // edge target resolution (needs all IDs)
   for (const p of parsed) {
     if (!Array.isArray(p.data.edges)) continue;
     p.data.edges.forEach((e, i) => {
       if (typeof e !== 'object' || e === null) return;
       if (typeof e.to !== 'string') return;
-      const r = resolveTarget(e.to, planIds, agentIds);
-      if (!r.ok) p.errors.push(`edges[${i}].to: target '${e.to}' not found`);
+      if (!/^N\d+$/.test(e.to)) {
+        p.errors.push(`edges[${i}].to: '${e.to}' has invalid format (expected Nxxx)`);
+        return;
+      }
+      if (!ids.has(e.to)) {
+        p.errors.push(`edges[${i}].to: target '${e.to}' not found`);
+      }
     });
   }
 

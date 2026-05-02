@@ -23,19 +23,19 @@ egf --help
 
 ## Befehle im Überblick
 
-| Befehl                                 | Wirkung                                                  |
-|----------------------------------------|----------------------------------------------------------|
-| `egf init`                             | Default-Ordnerstruktur in CWD anlegen                    |
-| `egf node new <type> "<title>"`        | Plan-Graph-Knoten anlegen (`N001`, `N002`, …)            |
-| `egf capability new "<title>"`         | Agent-Graph-Capability anlegen (`A001`, `A002`, …)       |
-| `egf list [nodes\|capabilities\|inbox]` | Übersicht als Tabelle                                    |
-| `egf project`                          | Statistik des Graphen (Counts pro State / Type)          |
-| `egf --help`                           | Hilfe                                                    |
-| `egf --version`                        | Version                                                  |
+| Befehl                                  | Wirkung                                                     |
+|-----------------------------------------|-------------------------------------------------------------|
+| `egf init`                              | Default-Ordnerstruktur in CWD anlegen                       |
+| `egf node new <type> "<title>"`         | Knoten anlegen (`N001`, `N002`, …)                          |
+| `egf list [nodes\|capabilities\|inbox]` | Übersicht als Tabelle                                       |
+| `egf project`                           | Statistik des Graphen (Counts pro State / Type)             |
+| `egf project <node-id>`                 | Subgraph-Projektion ab `<node-id>`, topologisch sortiert    |
+| `egf validate`                          | Frontmatter und Edge-Targets gegen Schema prüfen            |
+| `egf --help`                            | Hilfe                                                       |
+| `egf --version`                         | Version                                                     |
 
 Alle Befehle außer `init` suchen den Repo-Root, indem sie aufwärts nach
-`plan-graph/` + `agent-graph/` schauen — du kannst sie also aus jedem
-Unterordner aufrufen.
+`nodes/` schauen — du kannst sie also aus jedem Unterordner aufrufen.
 
 ---
 
@@ -44,9 +44,8 @@ Unterordner aufrufen.
 Legt in `pwd` die Default-Struktur an:
 
 ```
-plan-graph/nodes/
-plan-graph/inbox/
-agent-graph/capabilities/
+nodes/
+inbox/
 projections/
 docs/adr/
 README.md
@@ -56,6 +55,7 @@ docs/cli.md
 docs/adr/README.md
 docs/adr/0001-markdown-als-source-of-truth.md
 docs/adr/0002-schreibquellen.md
+docs/adr/0003-ein-graph.md
 ```
 
 Existierende Dateien werden **nicht** überschrieben (`skip` in der Ausgabe).
@@ -70,8 +70,8 @@ egf init
 
 ## `egf node new <type> "<title>"`
 
-Legt einen neuen Plan-Graph-Knoten an. ID wird auto-vergeben (`N001`, `N002`, …),
-Dateiname ist `N<NNN>-<type>-<slug>.md` unter `plan-graph/nodes/`.
+Legt einen neuen Knoten an. ID wird auto-vergeben (`N001`, `N002`, …),
+Dateiname ist `N<NNN>-<type>-<slug>.md` unter `nodes/`.
 
 **Typen:**
 
@@ -84,30 +84,18 @@ Dateiname ist `N<NNN>-<type>-<slug>.md` unter `plan-graph/nodes/`.
 | `decision`    | `context`       | Entscheidung — sollte mit Evidenz nach Production wandern  |
 | `spec`        | `context`       | Spezifikation, Akzeptanzkriterium                          |
 | `risk`        | `context`       | erkanntes Risiko                                           |
+| `capability`  | `context`       | Werkzeug / Agent / Importer — braucht G1+G2 vor Production |
 
 ```bash
 egf node new hypothesis "tenant_id index closes p99 gap"
 egf node new observation "search p99 = 4.2s seit deploy am 2026-04-25"
 egf node new decision "switch to composite index (tenant_id, created_at)"
+egf node new capability "k6 load tester"
 ```
 
 Frontmatter und Body sind als TODO-Skeleton vorbefüllt — danach im Editor
 weiterarbeiten und Kanten in `edges:` deklarieren (siehe
 [`schema.md`](schema.md)).
-
----
-
-## `egf capability new "<title>"`
-
-Legt einen Agent-Graph-Knoten an. ID-Schema `A001`, `A002`, … unter
-`agent-graph/capabilities/`.
-
-```bash
-egf capability new "k6 load tester"
-egf capability new "postgres explain analyzer"
-```
-
-Capabilities sind niederfrequent — versioniere sie wie eine Package-Registry.
 
 ---
 
@@ -119,29 +107,69 @@ Druckt eine Tabelle. Default ist `nodes`.
 $ egf list nodes
 ID    TYPE         STATE        TITLE
 ----  -----------  -----------  -------------------------------------------
-N001  observation  production   search p99 = 4.2s seit deploy am 2026-04-25
-N002  hypothesis   exploration  tenant_id index closes p99 gap
+N001  observation  production   /search p99 = 1.8s in Prod
+N002  hypothesis   superseded   Fehlender Index auf documents.tenant_id
 ...
+N011  capability   production   postgres-explain-analyzer
 ```
 
-Aliase: `caps` für `capabilities`.
+`egf list capabilities` filtert auf `type=capability`. Aliase: `caps`.
+`egf list inbox` zeigt Knoten in `inbox/` (Importer-Signale vor G1).
 
 ---
 
 ## `egf project`
 
-Eine-Bildschirm-Übersicht über den Graphen:
+**Ohne Argument** — Eine-Bildschirm-Übersicht über den Graphen:
 
 ```
 $ egf project
 egf project — /Users/me/my-graph
 
-plan-graph/nodes:        10
-  by state:   exploration: 3  invalidated: 1  production: 5  superseded: 1
-  by type:   assumption: 1  decision: 1  hypothesis: 3  measurement: 1  observation: 2  risk: 1  spec: 1
-plan-graph/inbox:        0
-agent-graph/capabilities: 5
+nodes:         15
+  by state:    context: 2  exploration: 3  invalidated: 1  production: 8  superseded: 1
+  by type:     assumption: 1  capability: 5  decision: 1  hypothesis: 3  measurement: 1  observation: 2  risk: 1  spec: 1
+inbox:         0
+capabilities:  5  (subset of nodes where type=capability)
 ```
+
+**Mit Knoten-ID** — Subgraph-Projektion ab dem angegebenen Knoten,
+topologisch sortiert (Voraussetzungen zuerst). Zugkanten sind
+`depends_on`, `refines`, `evidence_for`, `supersedes` — schwache Kanten
+(`related_to`, `contradicts`) werden ignoriert, um Zyklen zu vermeiden.
+
+```bash
+egf project N003
+```
+
+---
+
+## `egf validate`
+
+Prüft alle Knoten in `nodes/` und `inbox/` gegen das Schema. Errors lassen
+den Befehl mit Exit 1 abbrechen. Warnungen (z. B. `state=production` ohne
+G2 in `gates_passed`) werden gezeigt, schlagen aber nicht fehl.
+
+```
+$ egf validate
+egf validate — 15 files
+
+WARN  nodes/N002-hypothesis-tenant-id-index.md
+  (warn) state=superseded but G2 missing from gates_passed
+  (warn) state=superseded but G3 missing from gates_passed
+
+summary: 15 files — 14 ok, 1 warning, 0 errors
+```
+
+Geprüft wird:
+
+- Pflichtfelder im Frontmatter (`id`, `type`, `state`, `title`, `created`,
+  `version`, `gates_passed`, `edges`).
+- Werte gegen Enums (`type`, `state`, `gates_passed`, `edges[].type`).
+- ID-Format (`/^N\d+$/`) und Match mit Dateinamen.
+- `gates_passed` aufsteigend.
+- Edge-Targets existieren als Knoten im Graph.
+- Konsistenz zwischen `state` und `gates_passed` (als Warnung).
 
 ---
 
@@ -156,14 +184,16 @@ egf node new observation "search p99 = 4.2s nach deploy 2026-04-25"
 
 # Hypothese formulieren
 egf node new hypothesis "fehlender index auf tenant_id ist die ursache"
-$EDITOR plan-graph/nodes/N002-*.md      # Erfolgskriterium + edges → N001 ausfüllen
+$EDITOR nodes/N002-*.md      # Erfolgskriterium + edges → N001 ausfüllen
 
 # Werkzeug registrieren
-egf capability new "postgres explain analyzer"
+egf node new capability "postgres explain analyzer"
 
 # Stand prüfen
 egf list nodes
 egf project
+egf project N002             # Voraussetzungen für N002 als linearer Plan
+egf validate
 ```
 
 Knoten-Format und Lifecycle: [`schema.md`](schema.md).

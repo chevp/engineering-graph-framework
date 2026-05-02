@@ -6,21 +6,26 @@
 
 Engineering ist nicht eine Sequenz von Tasks, sondern ein wachsender, verlinkter Wissensgraph. Pläne sind keine eigenständigen Dokumente, sondern Projektionen dieses Graphen. Der Lifecycle wandert von der Plan-Ebene auf die Knoten-Ebene: nicht der Task hat einen Zustand, sondern jedes Wissensartefakt.
 
-Das Framework beschreibt zwei gekoppelte Graphen, ihre Knoten-Lifecycles, und wie aus dem Substrat ausführbare Arbeit entsteht.
+Das Framework beschreibt einen einzigen Graphen, dessen Knoten denselben Lifecycle teilen, und wie aus dem Substrat ausführbare Arbeit entsteht. Capabilities (Werkzeuge, Importer, Analyzer) sind Knoten desselben Graphen — diskriminiert nur durch das `type`-Feld. Siehe [ADR-0003](docs/adr/0003-ein-graph.md).
 
-## Zwei Graphen
+## Knotentypen
 
-**Plan-Graph (Wissens-Substrat)**
-Knoten sind Engineering-Artefakte: Annahmen, Hypothesen, Messungen, Entscheidungen, Spezifikationen, Risiken, beobachtete Zustände. Hochfrequent veränderlich, versioniert, der "Körper" der Arbeit.
+| Typ           | Bedeutung                                                                                  |
+|---------------|--------------------------------------------------------------------------------------------|
+| `observation` | Fakt aus Log, Metrik, Beobachtung                                                          |
+| `measurement` | Messergebnis (EXPLAIN-Plan, Lasttest-Lauf, …)                                              |
+| `hypothesis`  | testbare Aussage mit Erfolgskriterium                                                      |
+| `assumption`  | unhinterfragte Annahme                                                                     |
+| `decision`    | Entscheidung — sollte mit Evidenz nach Production wandern                                  |
+| `spec`        | Spezifikation, Akzeptanzkriterium, SLO                                                     |
+| `risk`        | erkanntes Risiko                                                                           |
+| `capability`  | Werkzeug / Agent / Importer (Lasttest, Code-Analyse, Migrations-Generator, …)              |
 
-**Agent-Graph (Werkzeug-Katalog)**
-Knoten sind Fähigkeiten: Lasttest, Code-Analyse, Migrations-Generator, Schema-Validator. Kanten sind Komposition und Abhängigkeit. Niederfrequent, infrastrukturell, semantisch versioniert wie eine Package-Registry.
+Plan-Sicht und Werkzeug-Katalog sind **Projektionen** desselben Graphen (`egf list capabilities` filtert nach `type=capability`).
 
-Die beiden Graphen werden getrennt gespeichert und treffen sich nur über deklarierte Capabilities (Bedarf eines Plan-Knotens ↔ Fähigkeit eines Agent-Knotens).
+## Knoten-Lifecycle
 
-## Knoten-Lifecycle (Plan-Graph)
-
-Jeder Plan-Knoten durchläuft Zustände. Mehrere Knoten desselben Vorhabens befinden sich gleichzeitig in unterschiedlichen Zuständen.
+Jeder Knoten durchläuft Zustände. Mehrere Knoten desselben Vorhabens befinden sich gleichzeitig in unterschiedlichen Zuständen.
 
 | Zustand          | Bedeutung                                                                                    |
 |------------------|----------------------------------------------------------------------------------------------|
@@ -51,7 +56,7 @@ Mindestens nötig:
 - `supersedes` — A ersetzt B
 - `contradicts` — A widerspricht B (offen, ungelöst)
 - `related_to` — schwache, kuratierende Verknüpfung
-- `produced_by` — A wurde von Agent X erzeugt (Brücke zum Agent-Graph)
+- `produced_by` — A wurde von einem `capability`-Knoten erzeugt
 - `evidence_for` / `evidence_against` — A stützt/widerlegt B
 
 ## Pläne als Projektion
@@ -64,13 +69,13 @@ Konsequenzen:
 - Ein Plan altert nicht; er wird neu projiziert, sobald sich der Subgraph ändert.
 - "Was ist als nächstes zu tun?" ist eine Graph-Traversal-Frage.
 
-## Verhältnis zum Agent-Graph
+## Werkzeuge im Graphen
 
 Drei Interaktionsmodi:
 
-1. **Runtime**: Ein Agent-Lauf liest einen Subgraph (Kontext), schreibt neue Knoten und Kanten (Ergebnis).
-2. **Matching**: Ein offener Plan-Knoten deklariert seinen Bedarf; der Daemon sucht im Agent-Graph passende Fähigkeiten. Kein hardcoded Job-Routing.
-3. **Reflexion**: Ein Agent ist selbst Subjekt von Plan-Knoten. Wenn man einen Agent baut oder verbessert, entstehen Plan-Knoten über den Agent — die wiederum von anderen Agenten bearbeitet werden können. Bootstrapping ist nativ.
+1. **Runtime**: Ein Capability-Lauf liest einen Subgraph (Kontext), schreibt neue Knoten und Kanten (Ergebnis).
+2. **Matching**: Ein offener Knoten deklariert seinen Bedarf; der Daemon sucht im Graphen passende `capability`-Knoten. Kein hardcoded Job-Routing.
+3. **Reflexion**: Eine Capability ist selbst Subjekt anderer Knoten. Wenn man eine Capability baut oder verbessert, entstehen Plan-Knoten über die Capability — die wiederum von anderen Capabilities bearbeitet werden können. Bootstrapping ist nativ.
 
 ## Operative Konsequenzen
 
@@ -88,7 +93,7 @@ Drei Interaktionsmodi:
 - Wissens-Reuse über Plan-Grenzen hinweg.
 - Historische Lehrwerte (Invalidated-Knoten) bleiben durchsuchbar.
 - Selbstbeschreibung: das System dokumentiert seine eigene Werkzeugentwicklung.
-- Kontextauswahl für Agenten wird Graph-Traversal statt Prompt-Engineering.
+- Kontextauswahl für Capabilities wird Graph-Traversal statt Prompt-Engineering.
 
 ## Offene Designfragen
 

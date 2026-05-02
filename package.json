@@ -16,6 +16,10 @@
   "engines": {
     "node": ">=18"
   },
+  "dependencies": {
+    "graphology": "^0.25.4",
+    "graphology-dag": "^0.4.1"
+  },
   "license": "MIT",
   "author": "chevp"
 }
