@@ -42,22 +42,21 @@ legacy `nodes/` — so you can call them from any subdirectory.
 
 ## `egf init`
 
-Creates the default structure in `pwd`:
+Creates the minimal scaffold in `pwd`:
 
 ```
-nodes/
 inbox/
 projections/
-docs/adr/
 README.md
 .gitignore
-docs/schema.md
-docs/cli.md
-docs/adr/README.md
-docs/adr/0001-markdown-als-source-of-truth.md
-docs/adr/0002-schreibquellen.md
-docs/adr/0003-ein-graph.md
+inbox/README.md
+projections/README.md
 ```
+
+Type-folders (`decisions/`, `specs/`, `observations/`, `hypotheses/`, …)
+are **not** pre-created. They appear lazily the first time you run
+`egf node new <type> ...` for that type. This keeps the tree empty
+until you actually use it.
 
 Existing files are **not** overwritten (`skip` in the output).
 Use `--force` to write templates over existing files.
@@ -71,8 +70,10 @@ egf init
 
 ## `egf node new <type> "<title>"`
 
-Creates a new node. The ID is auto-assigned (`N001`, `N002`, …);
-the file name is `N<NNN>-<type>-<slug>.md` under `nodes/`.
+Creates a new node. The ID is auto-assigned globally (`N001`, `N002`, …
+across all type-folders); the file name is `N<NNN>-<type>-<slug>.md` under
+the type-folder for `<type>` (e.g. `decisions/`, `specs/`). The folder is
+created on demand.
 
 **Types:**
 
@@ -100,9 +101,10 @@ in your editor and declare edges in `edges:` (see
 
 ---
 
-## `egf list [nodes|capabilities|inbox]`
+## `egf list [nodes|<type-plural>|inbox]`
 
-Prints a table. Default is `nodes`.
+Prints a table. Default is `nodes` (aggregates across **all** type-folders
+plus the legacy `nodes/`).
 
 ```
 $ egf list nodes
@@ -114,7 +116,15 @@ N002  hypothesis   superseded   Missing index on documents.tenant_id
 N011  capability   production   postgres-explain-analyzer
 ```
 
-`egf list capabilities` filters by `type=capability`. Alias: `caps`.
+Per-type filtering: `egf list <type-plural>` reads only that folder.
+
+```
+egf list decisions
+egf list specs
+egf list observations
+egf list capabilities       # alias: egf list caps
+```
+
 `egf list inbox` shows nodes in `inbox/` (importer signals before G1).
 
 ---
@@ -147,15 +157,16 @@ egf project N003
 
 ## `egf validate`
 
-Checks all nodes in `nodes/` and `inbox/` against the schema. Errors cause
-the command to exit with code 1. Warnings (e.g. `state=production` without
-G2 in `gates_passed`) are displayed but do not fail the command.
+Checks all nodes across the type-folders, the legacy `nodes/`, and `inbox/`
+against the schema. Errors cause the command to exit with code 1.
+Warnings (e.g. `state=production` without G2 in `gates_passed`) are
+displayed but do not fail the command.
 
 ```
 $ egf validate
 egf validate — 15 files
 
-WARN  nodes/N002-hypothesis-tenant-id-index.md
+WARN  hypotheses/N002-hypothesis-tenant-id-index.md
   (warn) state=superseded but G2 missing from gates_passed
   (warn) state=superseded but G3 missing from gates_passed
 
@@ -185,13 +196,14 @@ egf node new observation "search p99 = 4.2s after deploy 2026-04-25"
 
 # formulate a hypothesis
 egf node new hypothesis "missing index on tenant_id is the cause"
-$EDITOR nodes/N002-*.md      # fill in success criterion + edges → N001
+$EDITOR hypotheses/N002-*.md      # fill in success criterion + edges → N001
 
 # register a tool
 egf node new capability "postgres explain analyzer"
 
 # check the state
-egf list nodes
+egf list nodes               # aggregated across type-folders
+egf list decisions           # only decisions/
 egf project
 egf project N002             # prerequisites for N002 as a linear plan
 egf validate

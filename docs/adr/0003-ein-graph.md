@@ -1,6 +1,6 @@
 # ADR 0003 — One graph, no plan/agent split
 
-**Status:** accepted
+**Status:** accepted (directory layout amended by [ADR-0004](0004-type-folders.md))
 **Date:** 2026-05-02
 **Context:** builds on [ADR-0001](0001-markdown-als-source-of-truth.md) and
 [ADR-0002](0002-schreibquellen.md).

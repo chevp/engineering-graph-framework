@@ -7,4 +7,5 @@ Minimal format: context → decision → consequences → alternatives.
 |-----|-------|--------|
 | [0001](0001-markdown-als-source-of-truth.md) | Markdown is source of truth, SQLite is index | accepted |
 | [0002](0002-schreibquellen.md) | Three write sources: human, agent, importer | accepted |
-| [0003](0003-ein-graph.md) | One graph, no plan/agent split | accepted |
+| [0003](0003-ein-graph.md) | One graph, no plan/agent split | accepted (layout amended by 0004) |
+| [0004](0004-type-folders.md) | One folder per node type | accepted |
