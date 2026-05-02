@@ -5,7 +5,7 @@ const path = require('path');
 const { topologicalSort } = require('graphology-dag');
 const { requireRepoRoot } = require('../util/fsx');
 const { parse } = require('../util/frontmatter');
-const { loadGraph } = require('../util/graph');
+const { loadGraph, readAllNodes } = require('../util/graph');
 
 // edge types that pull a prerequisite into the projection.
 // related_to / contradicts are informational and may cycle, so we exclude them.
@@ -17,6 +17,10 @@ function readAll(dir) {
     .readdirSync(dir)
     .filter(f => f.endsWith('.md') && f !== 'README.md')
     .map(f => parse(fs.readFileSync(path.join(dir, f), 'utf8')).data);
+}
+
+function readInbox(root) {
+  return readAll(path.join(root, 'inbox'));
 }
 
 function tally(items, key) {
@@ -35,8 +39,8 @@ function fmt(obj) {
 }
 
 function overview(root) {
-  const nodes = readAll(path.join(root, 'nodes'));
-  const inbox = readAll(path.join(root, 'inbox'));
+  const nodes = readAllNodes(root);
+  const inbox = readInbox(root);
   const caps = nodes.filter(n => n.type === 'capability');
 
   console.log(`egf project — ${root}\n`);

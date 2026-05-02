@@ -1,68 +1,79 @@
 # Schema
 
-Knoten und Kanten als Markdown-Dateien mit YAML-Frontmatter.
-Eine Datei pro Knoten. Kanten werden im Frontmatter des Quellknotens deklariert.
+Nodes and edges as Markdown files with YAML frontmatter.
+One file per node. Edges are declared in the frontmatter of the source node.
 
-## Knoten-Frontmatter
+## Node frontmatter
 
 ```yaml
 ---
-id: N001                    # eindeutig, stabil, fortlaufend (N\d+)
+id: N001                    # unique, stable, sequential (N\d+)
 type: observation           # observation | hypothesis | assumption | decision | spec | measurement | risk | capability
 state: production           # context | exploration | production | superseded | invalidated
-title: "Kurzer Titel"
-created: 2026-04-28         # ISO-Datum
-version: 1                  # erhöht bei Gate-Übergang, der eine neue Version erzeugt
-gates_passed: [G1, G2]      # Audit-Spur
+title: "Short title"
+created: 2026-04-28         # ISO date
+version: 1                  # incremented on a gate transition that creates a new version
+gates_passed: [G1, G2]      # audit trail
 edges:
-  - to: N005                # Knoten-ID — alle Knoten teilen denselben ID-Raum
+  - to: N005                # node ID — all nodes share the same ID space
     type: contradicts       # depends_on | refines | supersedes | contradicts | related_to | produced_by | evidence_for | evidence_against
     note: "optional"
 ---
 ```
 
-## Knoten-Body (Konvention)
+## Node body (convention)
 
 ```markdown
-## Aussage
-Was behauptet / beobachtet / gefordert wird. Ein Satz.
+## Statement
+What is claimed / observed / required. One sentence.
 
-## Erfolgskriterium
-Nur für hypothesis, decision, spec, capability. Messbar formuliert.
+## Success criterion
+For hypothesis, decision, spec, capability only. Phrased measurably.
 
-## Evidenz / Kontext
-Verweise auf Messungen, Tickets, Code-Stellen. Frei.
+## Evidence / context
+References to measurements, tickets, code locations. Free form.
 
-## Notizen
-Was bei Gate-Übergängen passiert ist. Kurz.
+## Notes
+What happened on gate transitions. Brief.
 ```
 
-## Lifecycle-Regeln
+## Lifecycle rules
 
-- Gate-Übergang → neue Knotenversion (neuer Knoten oder erhöhte `version`).
-- `Superseded` und `Invalidated` sind sichtbar, nicht gelöscht.
-- `produced_by` zeigt auf einen `capability`-Knoten — keine Sonderbehandlung, eine Edge wie jede andere.
+- Gate transition → new node version (new node, or incremented `version`).
+- `Superseded` and `Invalidated` are visible, not deleted.
+- `produced_by` points at a `capability` node — no special handling, just an edge like any other.
 
-## Verzeichnisse
+## Directories
 
-- `nodes/` — Wissens-Substrat (alle Knoten — hypothesis, decision, capability, …)
-- `inbox/` — ungeprüfte Importer-Signale vor G1
-- `projections/` — materialisierte Graph-Sichten (Query-Resultate, regenerierbar)
+One folder per node `type` (plural). The `type` frontmatter field is the
+source of truth; the folder mirrors it.
 
-## Speicher
+- `decisions/`, `specs/`, `observations/`, `hypotheses/`, `assumptions/`,
+  `measurements/`, `risks/`, `capabilities/` — knowledge substrate, split
+  by type. Type-folders are created lazily by `egf node new <type>`.
+- `inbox/` — unverified importer signals before G1
+- `projections/` — materialized graph views (query results, regenerable)
 
-Markdown-Files sind die kanonische Form. SQLite ist ein optionaler generierter
-Index zur Beschleunigung von Traversals. Siehe [ADR-0001](adr/0001-markdown-als-source-of-truth.md).
+The **ID space is global** (`N001`-sequential across all type-folders).
+Edges reference nodes by ID — the folder is irrelevant for graph topology.
 
-## Schreibquellen
+The legacy single `nodes/` folder is still readable by `egf` for backwards
+compatibility, but new repos should use the per-type layout.
 
-Drei Quellen, ein Pfad (alle schreiben Markdown):
+## Storage
 
-| Quelle    | Erkennbar an              | Typische Knotentypen                                  |
-|-----------|---------------------------|-------------------------------------------------------|
-| Mensch    | kein `produced_by`-Edge   | hypothesis, assumption, decision, spec, risk          |
-| Capability| `produced_by: Nxxx`       | observation, measurement, evidence_for/against        |
-| Importer  | `produced_by: Nxxx`       | observation (aus Alerts, Issues, CI, Monitoring)      |
+Markdown files are the canonical form. SQLite is an optional generated
+index that speeds up traversals. See [ADR-0001](adr/0001-markdown-als-source-of-truth.md).
 
-Importer sind reguläre `capability`-Knoten — keine Sonderschnittstelle.
-Siehe [ADR-0002](adr/0002-schreibquellen.md) und [ADR-0003](adr/0003-ein-graph.md).
+## Write sources
+
+Three sources, one path (all of them write Markdown):
+
+| Source     | Recognizable by         | Typical node types                                  |
+|------------|-------------------------|-----------------------------------------------------|
+| Human      | no `produced_by` edge   | hypothesis, assumption, decision, spec, risk        |
+| Capability | `produced_by: Nxxx`     | observation, measurement, evidence_for/against      |
+| Importer   | `produced_by: Nxxx`     | observation (from alerts, issues, CI, monitoring)   |
+
+Importers are regular `capability` nodes — no special interface.
+See [ADR-0002](adr/0002-schreibquellen.md) and [ADR-0003](adr/0003-ein-graph.md).

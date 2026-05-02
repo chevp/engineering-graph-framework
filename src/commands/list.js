@@ -4,18 +4,21 @@ const fs = require('fs');
 const path = require('path');
 const { requireRepoRoot } = require('../util/fsx');
 const { parse } = require('../util/frontmatter');
+const { TYPE_DIR, TYPE_DIRS, ALL_NODE_DIRS } = require('../util/types');
 
-function readEntries(dir) {
-  if (!fs.existsSync(dir)) return [];
-  return fs
-    .readdirSync(dir)
-    .filter(f => f.endsWith('.md') && f !== 'README.md')
-    .map(f => {
+function readEntries(dirs) {
+  const list = Array.isArray(dirs) ? dirs : [dirs];
+  const out = [];
+  for (const dir of list) {
+    if (!fs.existsSync(dir)) continue;
+    for (const f of fs.readdirSync(dir)) {
+      if (!f.endsWith('.md') || f === 'README.md') continue;
       const full = path.join(dir, f);
       const { data } = parse(fs.readFileSync(full, 'utf8'));
-      return { file: f, ...data };
-    })
-    .sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')));
+      out.push({ file: f, ...data });
+    }
+  }
+  return out.sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')));
 }
 
 function pad(s, n) {
@@ -45,7 +48,7 @@ function listCmd(args) {
   const root = requireRepoRoot();
 
   if (what === 'nodes') {
-    const rows = readEntries(path.join(root, 'nodes'));
+    const rows = readEntries(ALL_NODE_DIRS.map(d => path.join(root, d)));
     printTable(rows, [
       { header: 'ID',    key: 'id' },
       { header: 'TYPE',  key: 'type' },
@@ -55,8 +58,12 @@ function listCmd(args) {
     return;
   }
 
-  if (what === 'capabilities' || what === 'caps') {
-    const rows = readEntries(path.join(root, 'nodes')).filter(r => r.type === 'capability');
+  if (what === 'caps') {
+    return listCmd(['capabilities', ...args.slice(1)]);
+  }
+
+  if (TYPE_DIRS.includes(what)) {
+    const rows = readEntries(path.join(root, what));
     printTable(rows, [
       { header: 'ID',    key: 'id' },
       { header: 'STATE', key: 'state' },
@@ -76,7 +83,7 @@ function listCmd(args) {
   }
 
   console.error(`unknown list target: ${what}`);
-  console.error('valid: nodes | capabilities | inbox');
+  console.error(`valid: nodes | inbox | ${TYPE_DIRS.join(' | ')}`);
   process.exit(1);
 }
 

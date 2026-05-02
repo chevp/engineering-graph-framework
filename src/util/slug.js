@@ -10,15 +10,18 @@ function slugify(s) {
     .slice(0, 60);
 }
 
-function nextId(dir, prefix) {
+function nextId(dirOrDirs, prefix) {
   const fs = require('fs');
-  if (!fs.existsSync(dir)) return `${prefix}001`;
+  const dirs = Array.isArray(dirOrDirs) ? dirOrDirs : [dirOrDirs];
   const re = new RegExp(`^${prefix}(\\d+)`);
-  const ids = fs
-    .readdirSync(dir)
-    .map(f => f.match(re))
-    .filter(Boolean)
-    .map(m => parseInt(m[1], 10));
+  const ids = [];
+  for (const dir of dirs) {
+    if (!fs.existsSync(dir)) continue;
+    for (const f of fs.readdirSync(dir)) {
+      const m = f.match(re);
+      if (m) ids.push(parseInt(m[1], 10));
+    }
+  }
   const next = (ids.length ? Math.max(...ids) : 0) + 1;
   return `${prefix}${String(next).padStart(3, '0')}`;
 }

@@ -1,53 +1,55 @@
-# ADR 0001 — Markdown ist source-of-truth, SQLite ist Index
+# ADR 0001 — Markdown is source of truth, SQLite is index
 
 **Status:** accepted
-**Datum:** 2026-05-02
+**Date:** 2026-05-02
 
-## Kontext
+## Context
 
-Das Framework benötigt persistenten Speicher für zwei Graphen (Plan, Agent).
-Naheliegende Option: SQLite, weil per CLI installierbar (Node-Modul mit
-`better-sqlite3`), keine Server-Komponente nötig, gute Query-Eigenschaften
-für Traversals.
+The framework needs persistent storage for its graph. The obvious option is
+SQLite: installable through the CLI (Node module via `better-sqlite3`),
+no server component required, good query characteristics for traversals.
 
-Offene Frage: ist SQLite die kanonische Form der Daten, oder nur ein abgeleiteter Index?
+Open question: is SQLite the canonical form of the data, or just a derived index?
 
-SQLite-Verhalten ist hier kein Problem — die Datei wird nicht „ganz geladen",
-sondern per Page-Cache und mmap on-demand gelesen. Pro CLI-Aufruf wenige ms,
-auch ohne Daemon.
+SQLite's behavior is not a problem here — the file is not "fully loaded";
+it is read on-demand through the page cache and mmap. Each CLI invocation
+takes a few milliseconds, even without a daemon.
 
-## Entscheidung
+## Decision
 
-**Markdown-Dateien unter `plan-graph/nodes/` und `agent-graph/capabilities/`
-sind die kanonische Form der Daten.** SQLite ist ein generierter Index zur
-Beschleunigung von Traversals, Projektionen und Queries.
+**The Markdown files under `nodes/` are the canonical form of the data.**
+SQLite is a generated index that accelerates traversals, projections, and
+queries.
 
-- Schreiben heißt: Markdown-Datei anlegen oder ändern, gefolgt von Re-Index.
-- Lesen für Queries: gegen die SQLite. Lesen für Mensch / Diff / Review: gegen die Markdown.
-- `engraph index` parst alle Knoten- und Kanten-Files und baut die SQLite neu.
-- Bei file-watch-Modus wird inkrementell aktualisiert.
+- Writing means: create or change a Markdown file, followed by re-indexing.
+- Reading for queries: against SQLite. Reading for humans / diff / review:
+  against the Markdown.
+- `egf index` parses all node and edge files and rebuilds the SQLite index.
+- In file-watch mode the index is updated incrementally.
 
-## Konsequenzen
+## Consequences
 
-**Positiv**
-- git versioniert die Wahrheit; Diffs sind lesbar; Code-Review funktioniert auf Knoten.
-- Editor-Workflow bleibt trivial: ein Knoten ist eine Datei.
-- SQLite ist verwerfbar — bei Schema-Änderung einfach neu bauen.
-- Agent-Läufe und Mensch-Edits gehen durch denselben Pfad (Datei schreiben),
-  was den Graph in [ADR-0002](0002-schreibquellen.md) symmetrisch macht.
+**Positive**
+- Git versions the truth; diffs are readable; code review works on nodes.
+- Editor workflow stays trivial: a node is a file.
+- SQLite is disposable — on a schema change just rebuild it.
+- Capability runs and human edits go through the same path (write a file),
+  which makes the graph in [ADR-0002](0002-schreibquellen.md) symmetric.
 
-**Negativ**
-- Sync-Aufwand: nach jeder Änderung muss der Index aktualisiert werden.
-- Drift möglich, wenn jemand am Index vorbei schreibt — daher: nur Markdown ist Quelle, niemand schreibt direkt SQL.
-- Bei sehr großen Graphen (> 10k Knoten) wird Re-Index langsamer; dann braucht es inkrementelles Indexing per file-watcher.
+**Negative**
+- Sync overhead: after every change the index has to be updated.
+- Drift is possible if someone writes around the index — therefore: only
+  Markdown is the source, no one writes SQL directly.
+- For very large graphs (> 10k nodes) re-indexing gets slow; that is when
+  incremental indexing via a file-watcher becomes necessary.
 
-## Alternativen
+## Alternatives
 
-- **SQLite ist source-of-truth, Markdown ist Export.** Verworfen: man verliert
-  git-Diff, Editor-Workflow, Mensch-Lesbarkeit. Widerspricht der Grundthese
-  „Wissens-Substrat" im README.
-- **Embedded Graph-DB (z.B. Kùzu).** Verworfen für v1: höhere Abhängigkeit,
-  schlechter portabel, keine git-Diffs. Optional später als Index-Backend.
-- **Plain JSON-Dateien statt Markdown mit Frontmatter.** Verworfen: Knoten haben
-  einen Body (Aussage, Kontext, Notizen) — Markdown trägt das natürlich,
-  JSON würde den Body in einen String-Feld zwängen.
+- **SQLite is source of truth, Markdown is export.** Rejected: this loses
+  the git diff, the editor workflow, and human readability. It contradicts
+  the core "knowledge substrate" thesis in the README.
+- **Embedded graph database (e.g. Kùzu).** Rejected for v1: heavier
+  dependency, less portable, no git diffs. Optional later as an index backend.
+- **Plain JSON files instead of Markdown with frontmatter.** Rejected:
+  nodes have a body (statement, context, notes) — Markdown carries that
+  naturally; JSON would force the body into a string field.

@@ -4,17 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { requireRepoRoot } = require('../util/fsx');
 const { parse } = require('../util/frontmatter');
-
-const NODE_TYPES = [
-  'observation',
-  'hypothesis',
-  'assumption',
-  'decision',
-  'spec',
-  'measurement',
-  'risk',
-  'capability',
-];
+const { NODE_TYPES, ALL_NODE_DIRS, dirForType } = require('../util/types');
 const STATES = ['context', 'exploration', 'production', 'superseded', 'invalidated'];
 const EDGE_TYPES = [
   'depends_on',
@@ -37,12 +27,12 @@ const STATE_GATES = {
   invalidated: [],
 };
 
-function readDir(dir) {
+function readDir(dir, dirName) {
   if (!fs.existsSync(dir)) return [];
   return fs
     .readdirSync(dir)
     .filter(f => f.endsWith('.md') && f !== 'README.md')
-    .map(f => ({ file: f, full: path.join(dir, f) }));
+    .map(f => ({ file: f, full: path.join(dir, f), dirName: dirName || path.basename(dir) }));
 }
 
 function validateFrontmatter(data, ctx) {
@@ -133,8 +123,8 @@ function validateCmd() {
   const root = requireRepoRoot();
 
   const files = [
-    ...readDir(path.join(root, 'nodes')),
-    ...readDir(path.join(root, 'inbox')),
+    ...ALL_NODE_DIRS.flatMap(d => readDir(path.join(root, d), d)),
+    ...readDir(path.join(root, 'inbox'), 'inbox'),
   ];
 
   const parsed = [];

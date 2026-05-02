@@ -2,19 +2,11 @@
 
 const fs = require('fs');
 const path = require('path');
-const { requireRepoRoot } = require('../util/fsx');
+const { requireRepoRoot, ensureDir } = require('../util/fsx');
 const { slugify, nextId, today } = require('../util/slug');
+const { NODE_TYPES, ALL_NODE_DIRS, dirForType } = require('../util/types');
 
-const VALID_TYPES = [
-  'observation',
-  'hypothesis',
-  'assumption',
-  'decision',
-  'spec',
-  'measurement',
-  'risk',
-  'capability',
-];
+const VALID_TYPES = NODE_TYPES;
 
 // initial state per type — observations and measurements are facts on arrival
 // (production); the rest start as context until G1 is passed.
@@ -74,10 +66,12 @@ function nodeCmd(args) {
   }
 
   const root = requireRepoRoot();
-  const nodesDir = path.join(root, 'nodes');
-  const id = nextId(nodesDir, 'N');
+  const allDirs = ALL_NODE_DIRS.map(d => path.join(root, d));
+  const id = nextId(allDirs, 'N');
+  const targetDir = path.join(root, dirForType(type));
+  ensureDir(targetDir);
   const fname = `${id}-${type}-${slugify(title)}.md`;
-  const fpath = path.join(nodesDir, fname);
+  const fpath = path.join(targetDir, fname);
 
   const body = template({
     id,

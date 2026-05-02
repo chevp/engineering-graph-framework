@@ -5,10 +5,11 @@ const path = require('path');
 const { requireRepoRoot } = require('../util/fsx');
 const { parse } = require('../util/frontmatter');
 const { loadGraph } = require('../util/graph');
+const { ALL_NODE_DIRS } = require('../util/types');
 
 function findFile(root, id) {
   const target = String(id).toUpperCase();
-  for (const dir of ['nodes', 'inbox']) {
+  for (const dir of [...ALL_NODE_DIRS, 'inbox']) {
     const full = path.join(root, dir);
     if (!fs.existsSync(full)) continue;
     const match = fs
@@ -39,7 +40,7 @@ function showCmd(args) {
   const root = requireRepoRoot();
   const hit = findFile(root, id);
   if (!hit) {
-    console.error(`error: node '${id}' not found in nodes/ or inbox/`);
+    console.error(`error: node '${id}' not found in any type-dir or inbox/`);
     process.exit(1);
   }
 

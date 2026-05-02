@@ -1,11 +1,11 @@
 # Projections
 
-Materialisierte Sichten auf den Plan-Graph. Eine Projektion ist eine Query —
-ausgehend von einem Zielknoten wird ein relevanter Subgraph gewählt,
-topologisch sortiert und als lineare Ausführungssicht gerendert.
+Materialized views over the graph. A projection is a query — starting from
+a target node, a relevant subgraph is selected, topologically sorted, and
+rendered as a linear execution view.
 
-Konsequenz: Projektionen sind **regenerierbar**. Sie altern nicht — sie
-werden neu projiziert, sobald sich der Subgraph ändert.
+Consequence: projections are **regenerable**. They do not age — they are
+re-projected as soon as the subgraph changes.
 
-Diese Files dürfen committed werden, müssen es aber nicht. Behandle sie
-wie generierten Code: lesbarer Snapshot, nicht source-of-truth.
+These files may be committed, but don't have to be. Treat them like
+generated code: a readable snapshot, not the source of truth.

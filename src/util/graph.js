@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { MultiDirectedGraph } = require('graphology');
 const { parse } = require('./frontmatter');
+const { ALL_NODE_DIRS } = require('./types');
 
 function readNodes(dir) {
   if (!fs.existsSync(dir)) return [];
@@ -13,9 +14,17 @@ function readNodes(dir) {
     .map(f => parse(fs.readFileSync(path.join(dir, f), 'utf8')).data);
 }
 
+function readAllNodes(root) {
+  const out = [];
+  for (const d of ALL_NODE_DIRS) {
+    out.push(...readNodes(path.join(root, d)));
+  }
+  return out;
+}
+
 function loadGraph(root) {
   const graph = new MultiDirectedGraph();
-  const nodes = readNodes(path.join(root, 'nodes'));
+  const nodes = readAllNodes(root);
 
   for (const n of nodes) {
     if (!n.id) continue;
@@ -40,4 +49,4 @@ function loadGraph(root) {
   return graph;
 }
 
-module.exports = { loadGraph };
+module.exports = { loadGraph, readNodes, readAllNodes };

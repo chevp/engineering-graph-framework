@@ -1,104 +1,104 @@
 # Engineering-Graph Framework
 
-*Arbeitstitel — Nachfolger / Erweiterung von [chevp-ai-framework](../../misc/chevp-ai-framework).*
+*Working title — successor / extension of [chevp-ai-framework](../../misc/chevp-ai-framework).*
 
-## Grundthese
+## Core thesis
 
-Engineering ist nicht eine Sequenz von Tasks, sondern ein wachsender, verlinkter Wissensgraph. Pläne sind keine eigenständigen Dokumente, sondern Projektionen dieses Graphen. Der Lifecycle wandert von der Plan-Ebene auf die Knoten-Ebene: nicht der Task hat einen Zustand, sondern jedes Wissensartefakt.
+Engineering is not a sequence of tasks, but a growing, linked knowledge graph. Plans are not standalone documents — they are projections of this graph. The lifecycle moves from the plan level down to the node level: it is no longer the task that has a state, but every knowledge artifact.
 
-Das Framework beschreibt einen einzigen Graphen, dessen Knoten denselben Lifecycle teilen, und wie aus dem Substrat ausführbare Arbeit entsteht. Capabilities (Werkzeuge, Importer, Analyzer) sind Knoten desselben Graphen — diskriminiert nur durch das `type`-Feld. Siehe [ADR-0003](docs/adr/0003-ein-graph.md).
+The framework describes a single graph whose nodes share the same lifecycle, and how executable work emerges from that substrate. Capabilities (tools, importers, analyzers) are nodes of the same graph — distinguished only by the `type` field. See [ADR-0003](docs/adr/0003-ein-graph.md).
 
-## Knotentypen
+## Node types
 
-| Typ           | Bedeutung                                                                                  |
-|---------------|--------------------------------------------------------------------------------------------|
-| `observation` | Fakt aus Log, Metrik, Beobachtung                                                          |
-| `measurement` | Messergebnis (EXPLAIN-Plan, Lasttest-Lauf, …)                                              |
-| `hypothesis`  | testbare Aussage mit Erfolgskriterium                                                      |
-| `assumption`  | unhinterfragte Annahme                                                                     |
-| `decision`    | Entscheidung — sollte mit Evidenz nach Production wandern                                  |
-| `spec`        | Spezifikation, Akzeptanzkriterium, SLO                                                     |
-| `risk`        | erkanntes Risiko                                                                           |
-| `capability`  | Werkzeug / Agent / Importer (Lasttest, Code-Analyse, Migrations-Generator, …)              |
+| Type          | Meaning                                                                                       |
+|---------------|-----------------------------------------------------------------------------------------------|
+| `observation` | Fact from a log, metric, or observation                                                       |
+| `measurement` | Measurement result (EXPLAIN plan, load-test run, …)                                           |
+| `hypothesis`  | Testable claim with a success criterion                                                       |
+| `assumption`  | Unquestioned premise                                                                          |
+| `decision`    | Decision — should move to Production once it has evidence                                     |
+| `spec`        | Specification, acceptance criterion, SLO                                                      |
+| `risk`        | Identified risk                                                                               |
+| `capability`  | Tool / agent / importer (load tester, code analyzer, migration generator, …)                  |
 
-Plan-Sicht und Werkzeug-Katalog sind **Projektionen** desselben Graphen (`egf list capabilities` filtert nach `type=capability`).
+The plan view and the tool catalog are **projections** of the same graph (`egf list capabilities` filters by `type=capability`).
 
-## Knoten-Lifecycle
+## Node lifecycle
 
-Jeder Knoten durchläuft Zustände. Mehrere Knoten desselben Vorhabens befinden sich gleichzeitig in unterschiedlichen Zuständen.
+Every node moves through a set of states. Multiple nodes belonging to the same effort can be in different states at the same time.
 
-| Zustand          | Bedeutung                                                                                    |
-|------------------|----------------------------------------------------------------------------------------------|
-| **Context**      | Knoten ist neu angelegt; sammelt Beobachtungen, ohne Anspruch auf Wahrheit                   |
-| **Exploration**  | Knoten ist als testbare Hypothese formuliert; aktive Untersuchung                            |
-| **Production**   | Knoten ist validiert; Teil des stabilen Wissens, andere Knoten dürfen darauf bauen           |
-| **Superseded**   | Knoten wurde durch einen Nachfolger ersetzt; bleibt sichtbar für Historie                    |
-| **Invalidated**  | Knoten wurde durch neue Messung als falsch erkannt; bleibt sichtbar als Lehrwert             |
+| State            | Meaning                                                                                       |
+|------------------|-----------------------------------------------------------------------------------------------|
+| **Context**      | Node was just created; collects observations without claiming truth                           |
+| **Exploration**  | Node is formulated as a testable hypothesis; under active investigation                       |
+| **Production**   | Node is validated; part of stable knowledge, other nodes may build on it                      |
+| **Superseded**   | Node was replaced by a successor; remains visible for history                                 |
+| **Invalidated**  | Node was shown to be wrong by a new measurement; remains visible for its lessons              |
 
-Endzustände sind nicht terminal im Sinne von "weg" — sie bleiben Teil des Graphen und tragen Lehrwert.
+End states are not terminal in the sense of "gone" — they remain part of the graph and carry educational value.
 
-## Gates als Kanten-Prädikate
+## Gates as edge predicates
 
-Gates sind keine globalen Phasen-Übergänge mehr, sondern Bedingungen auf Kanten zwischen Zustandsversionen eines Knotens.
+Gates are no longer global phase transitions but conditions on edges between state versions of a node.
 
-- **G1 (Context → Exploration)**: Knoten ist als testbare Aussage formuliert, hat ein Erfolgskriterium.
-- **G2 (Exploration → Production)**: Erfolgskriterium ist erfüllt, Evidenz ist im Graph verlinkt (Messungen, Reviews, Verifikationen).
-- **G3 (Production → Superseded)**: Nachfolge-Knoten existiert, Supersede-Kante ist gesetzt, abhängige Knoten sind benachrichtigt oder migriert.
+- **G1 (Context → Exploration)**: node is formulated as a testable claim and has a success criterion.
+- **G2 (Exploration → Production)**: success criterion is met, evidence is linked in the graph (measurements, reviews, verifications).
+- **G3 (Production → Superseded)**: a successor node exists, the supersede edge is set, dependent nodes are notified or migrated.
 
-Ein Gate-Übergang erzeugt eine neue Knotenversion, nicht eine Mutation der bestehenden. Der Graph behält Geschichte.
+A gate transition produces a new node version, not a mutation of the existing one. The graph keeps history.
 
-## Kantentypen
+## Edge types
 
-Mindestens nötig:
+Minimum required:
 
-- `depends_on` — Knoten A setzt B voraus
-- `refines` — A ist eine Konkretisierung von B
-- `supersedes` — A ersetzt B
-- `contradicts` — A widerspricht B (offen, ungelöst)
-- `related_to` — schwache, kuratierende Verknüpfung
-- `produced_by` — A wurde von einem `capability`-Knoten erzeugt
-- `evidence_for` / `evidence_against` — A stützt/widerlegt B
+- `depends_on` — node A requires B
+- `refines` — A is a concretization of B
+- `supersedes` — A replaces B
+- `contradicts` — A contradicts B (open, unresolved)
+- `related_to` — weak, curatorial link
+- `produced_by` — A was produced by a `capability` node
+- `evidence_for` / `evidence_against` — A supports/refutes B
 
-## Pläne als Projektion
+## Plans as projection
 
-Ein "Plan" im klassischen Sinn ist im neuen Modell eine Query: ausgehend von einem Zielknoten wird ein Subgraph relevanter Knoten gewählt, topologisch sortiert, und als lineare Ausführungssicht für einen Lauf präsentiert.
+A "plan" in the classical sense is, in this new model, a query: starting from a target node, a subgraph of relevant nodes is selected, topologically sorted, and presented as a linear execution view for one run.
 
-Konsequenzen:
+Consequences:
 
-- Zwei Pläne dürfen denselben Knoten teilen — Wissensreuse statt Copy-Paste.
-- Ein Plan altert nicht; er wird neu projiziert, sobald sich der Subgraph ändert.
-- "Was ist als nächstes zu tun?" ist eine Graph-Traversal-Frage.
+- Two plans may share the same node — knowledge reuse instead of copy-paste.
+- A plan does not age; it is re-projected as soon as the subgraph changes.
+- "What should we do next?" becomes a graph traversal question.
 
-## Werkzeuge im Graphen
+## Tools in the graph
 
-Drei Interaktionsmodi:
+Three modes of interaction:
 
-1. **Runtime**: Ein Capability-Lauf liest einen Subgraph (Kontext), schreibt neue Knoten und Kanten (Ergebnis).
-2. **Matching**: Ein offener Knoten deklariert seinen Bedarf; der Daemon sucht im Graphen passende `capability`-Knoten. Kein hardcoded Job-Routing.
-3. **Reflexion**: Eine Capability ist selbst Subjekt anderer Knoten. Wenn man eine Capability baut oder verbessert, entstehen Plan-Knoten über die Capability — die wiederum von anderen Capabilities bearbeitet werden können. Bootstrapping ist nativ.
+1. **Runtime**: a capability run reads a subgraph (context) and writes new nodes and edges (result).
+2. **Matching**: an open node declares its need; the daemon searches the graph for matching `capability` nodes. No hardcoded job routing.
+3. **Reflection**: a capability is itself the subject of other nodes. When a capability is built or improved, plan nodes about that capability come into being — which in turn can be processed by other capabilities. Bootstrapping is native.
 
-## Operative Konsequenzen
+## Operational consequences
 
-**Was bleibt vom chevp-ai-framework**: die drei Lifecycle-Stufen (Context/Exploration/Production), die drei Gates (G1/G2/G3), die Forderung "vor Schreibarbeit Lifecycle-Schritt benennen". Form bleibt, Bezugsobjekt wechselt — nicht der Task, sondern der Knoten.
+**What stays from chevp-ai-framework**: the three lifecycle stages (Context/Exploration/Production), the three gates (G1/G2/G3), and the requirement to name the lifecycle step before doing any writing work. The form remains; the referent changes — not the task, but the node.
 
-**Was ändert sich im Tagesgeschäft**:
+**What changes day to day**:
 
-- Statt "Plan-Datei anlegen" → "Knoten anlegen, Kanten deklarieren".
-- Statt "Plan abarbeiten" → "Subgraph projizieren, ausführen, Ergebnisse als neue Knoten zurückschreiben".
-- Statt "Plan ist veraltet" → "Knoten X ist superseded, abhängige Knoten neu prüfen".
-- Code-Review wird zu Knoten-Review mit klarem Gate-Kriterium.
+- Instead of "create a plan file" → "create a node, declare edges".
+- Instead of "work through the plan" → "project the subgraph, execute it, write results back as new nodes".
+- Instead of "the plan is stale" → "node X is superseded, re-check dependent nodes".
+- Code review becomes node review with a clear gate criterion.
 
-**Was ist neu**:
+**What is new**:
 
-- Wissens-Reuse über Plan-Grenzen hinweg.
-- Historische Lehrwerte (Invalidated-Knoten) bleiben durchsuchbar.
-- Selbstbeschreibung: das System dokumentiert seine eigene Werkzeugentwicklung.
-- Kontextauswahl für Capabilities wird Graph-Traversal statt Prompt-Engineering.
+- Knowledge reuse across plan boundaries.
+- Historical lessons (invalidated nodes) remain searchable.
+- Self-description: the system documents the development of its own tools.
+- Context selection for capabilities becomes graph traversal instead of prompt engineering.
 
-## Offene Designfragen
+## Open design questions
 
-- Granularität von Knoten: wann ist etwas ein eigener Knoten, wann Teil eines anderen?
-- Konfliktauflösung bei `contradicts`-Kanten: manuell, agentengestützt, beides?
-- Migrationspfad von bestehenden linearen Plänen in den Graphen.
-- Sichtbarkeits-/Vertraulichkeitsmodell für Knoten (nicht alles ist gleich exponierbar).
-- UI-Frage: wie navigiert ein Mensch effizient einen Graphen, der täglich wächst.
+- Granularity of nodes: when is something its own node, and when is it part of another?
+- Conflict resolution on `contradicts` edges: manual, agent-assisted, both?
+- Migration path from existing linear plans into the graph.
+- Visibility / confidentiality model for nodes (not everything is equally exposable).
+- UI question: how does a human efficiently navigate a graph that grows daily?

@@ -16,8 +16,10 @@ const HELP = `egf — Engineering-Graph Framework CLI (v${pkg.version})
 
 Usage:
   egf init                              Scaffold default folder structure in CWD
-  egf node new <type> "<title>"         Create a new node
-  egf list [nodes|capabilities|inbox]   List existing entries (default: nodes)
+  egf node new <type> "<title>"         Create a new node (written to <type>s/ folder)
+  egf list [nodes|<type-plural>|inbox]  List entries: 'nodes' = all; or one of decisions,
+                                        specs, observations, hypotheses, assumptions,
+                                        measurements, risks, capabilities (default: nodes)
   egf show <node-id>                    Show a single node: frontmatter, resolved edges, body
   egf project                           Print a one-screen overview of the graph
   egf project <node-id>                 Project a subgraph from <node-id>, topo-sorted (prereqs first)
@@ -25,14 +27,17 @@ Usage:
   egf --help                            Show this help
   egf --version                         Show version
 
-Node types:
-  observation, hypothesis, assumption, decision, spec, measurement, risk, capability
+Node types → folders:
+  observation→observations/   hypothesis→hypotheses/   assumption→assumptions/
+  decision→decisions/         spec→specs/              measurement→measurements/
+  risk→risks/                 capability→capabilities/
 
 Examples:
   egf init
   egf node new hypothesis "tenant_id index closes p99 gap"
-  egf node new capability "k6 load tester"
+  egf node new decision "Java/Spring für Server"
   egf list nodes
+  egf list decisions
   egf list capabilities
 `;
 

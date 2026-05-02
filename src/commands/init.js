@@ -7,24 +7,24 @@ const { ensureDir, copyIfMissing } = require('../util/fsx');
 const TEMPLATES_DIR = path.join(__dirname, '..', 'templates');
 
 const DIRS = [
-  'nodes',
   'inbox',
   'projections',
-  'docs/adr',
 ];
 
+// Type-Verzeichnisse (decisions/, specs/, …) werden nicht vorab angelegt.
+// `egf node new <type>` legt das passende Verzeichnis lazy an, sobald der
+// erste Knoten dieses Typs erstellt wird.
+
 const FILES = [
-  { dest: 'README.md',                                       src: 'project-readme.md' },
-  { dest: '.gitignore',                                      src: 'gitignore' },
-  { dest: 'inbox/README.md',                                 src: 'inbox-readme.md' },
-  { dest: 'projections/README.md',                           src: 'projections-readme.md' },
-  { dest: 'docs/schema.md',                                  src: 'schema.md' },
-  { dest: 'docs/cli.md',                                     src: 'cli.md' },
-  { dest: 'docs/adr/README.md',                              src: 'adr-readme.md' },
-  { dest: 'docs/adr/0001-markdown-als-source-of-truth.md',   src: 'adr-0001.md' },
-  { dest: 'docs/adr/0002-schreibquellen.md',                 src: 'adr-0002.md' },
-  { dest: 'docs/adr/0003-ein-graph.md',                      src: 'adr-0003.md' },
+  { dest: 'README.md',              src: 'project-readme.md' },
+  { dest: '.gitignore',             src: 'gitignore' },
+  { dest: 'inbox/README.md',        src: 'inbox-readme.md' },
+  { dest: 'projections/README.md',  src: 'projections-readme.md' },
 ];
+
+// Framework-eigene Doku (Schema, CLI-Referenz, EGF-ADRs) wird absichtlich
+// NICHT mehr pro Konsumenten-Repo dupliziert. Sie lebt im EGF-Repo selbst —
+// das Konsumenten-README verlinkt dorthin.
 
 function init(args) {
   const cwd = process.cwd();
