@@ -1,7 +1,7 @@
 {
   "name": "@chevp/egf",
   "version": "0.1.0",
-  "description": "Engineering-Graph Framework CLI (egf) — scaffold and operate on the plan/agent graph.",
+  "description": "Engineering-Graph Framework CLI (egf) — scaffold and operate on the engineering knowledge graph.",
   "bin": {
     "egf": "bin/egf.js"
   },

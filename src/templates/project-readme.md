@@ -11,25 +11,29 @@ Task auf den Knoten.
 ## Struktur
 
 ```
-plan-graph/
-  nodes/         # Wissens-Substrat (hypothesis, decision, observation, ...)
-  inbox/         # Stage für Importer-Knoten vor G1
-agent-graph/
-  capabilities/  # Werkzeug-Katalog (Lasttest, Analyzer, Importer, ...)
-projections/     # materialisierte Plan-Sichten (regenerierbar)
+nodes/         # alle Knoten (hypothesis, decision, observation, capability, …)
+inbox/         # Stage für Importer-Knoten vor G1
+projections/   # materialisierte Graph-Sichten (regenerierbar)
 docs/
-  schema.md      # Format der Markdown-Knoten
-  cli.md         # CLI-Referenz
-  adr/           # Architecture Decision Records
+  schema.md    # Format der Markdown-Knoten
+  cli.md       # CLI-Referenz
+  adr/         # Architecture Decision Records
 ```
+
+`type=capability`-Knoten bilden den Werkzeug-Katalog (`egf list capabilities`).
+Alle Knoten teilen denselben Lifecycle, dieselben Gates und denselben
+ID-Raum — siehe [`docs/adr/0003-ein-graph.md`](docs/adr/0003-ein-graph.md).
 
 ## Kurzreferenz
 
 ```bash
 egf node new hypothesis "tenant_id index closes p99 gap"
-egf capability new "k6 load tester"
+egf node new capability "k6 load tester"
 egf list nodes
+egf list capabilities
 egf project
+egf project <node-id>
+egf validate
 ```
 
 Volle CLI-Doku in [`docs/cli.md`](docs/cli.md), Knoten-Format in
