@@ -7,6 +7,7 @@ const init = require('./commands/init');
 const node = require('./commands/node');
 const list = require('./commands/list');
 const project = require('./commands/project');
+const show = require('./commands/show');
 const validate = require('./commands/validate');
 
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
@@ -17,6 +18,7 @@ Usage:
   egf init                              Scaffold default folder structure in CWD
   egf node new <type> "<title>"         Create a new node
   egf list [nodes|capabilities|inbox]   List existing entries (default: nodes)
+  egf show <node-id>                    Show a single node: frontmatter, resolved edges, body
   egf project                           Print a one-screen overview of the graph
   egf project <node-id>                 Project a subgraph from <node-id>, topo-sorted (prereqs first)
   egf validate                          Check all node files against the schema
@@ -56,6 +58,8 @@ function run(argv) {
         return list(rest);
       case 'project':
         return project(rest);
+      case 'show':
+        return show(rest);
       case 'validate':
         return validate(rest);
       default:
